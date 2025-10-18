@@ -68,7 +68,7 @@ OUTPUT_EXE_FILE = os.path.join(OUTPUT_DIR, "hashes_exe.csv")
 
 # Parámetros de la API
 TARGET_TAG = "exe"
-REQUEST_DELAY = 0.15 
+REQUEST_DELAY = 0.05 
 TARGET_EXE_COUNT = 70000 
 
 # Variables de estado global para el manejador de señales
@@ -353,7 +353,7 @@ def filtrar_hashes_con_reanudacion():
                         else:
                             print(f"➡️ Analizado: {hash_value} (No EXE)")
                             
-                        time.sleep(REQUEST_DELAY)
+                        #time.sleep(REQUEST_DELAY)
                 
                 else: 
                     finished_all_hashes = True
