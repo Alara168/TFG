@@ -3,7 +3,10 @@ import requests
 import json
 import time
 import csv
+import signal 
+import subprocess 
 from dotenv import load_dotenv
+import sys 
 
 # ==============================================================================
 #                      DESCRIPCIÓN DEL FLUJO DE TRABAJO (TFG)
@@ -13,23 +16,33 @@ Este script realiza el proceso completo de recolección y filtrado de hashes de 
 para el TFG, garantizando la reanudación ante interrupciones y la limitación de muestras.
 
 Pasos ejecutados:
-1.  CONFIGURACIÓN: Carga la clave API de MalwareBazaar desde el archivo .env.
-2.  DESCARGA DE HASHES (GitHub): Descarga todos los archivos .txt de la carpeta SHA256 
+
+1.  DESCARGA DE HASHES (GitHub): Descarga todos los archivos .txt de la carpeta SHA256 
     del repositorio de GitHub en un directorio temporal (github_hashes_temp).
-3.  CONCATENACIÓN Y LIMPIEZA INICIAL: Combina todos los hashes únicos en un único archivo 
+
+2.  CONCATENACIÓN Y LIMPIEZA INICIAL: Combina todos los hashes únicos en un único archivo 
     maestro (MASTER_SHA256_LIST.txt) dentro de la carpeta Scrap/ficheros.
     Luego, borra los archivos temporales de GitHub y la carpeta temporal.
-4.  FILTRADO (MalwareBazaar API):
+
+3.  FILTRADO (MalwareBazaar API):
     a. Consulta la API de MalwareBazaar con 'get_info' para cada hash.
     b. Limita la recolección a un objetivo de 40,000 hashes con la etiqueta "exe".
     c. Guarda los resultados en un archivo CSV (hashes_exe.csv) separado por ';', 
        registrando el HASH, la SIGNATURE y los TAGS.
     d. Implementa una pausa optimizada de 0.5 segundos entre solicitudes.
     e. Incluye manejo de errores para evitar que la ejecución se detenga por respuestas malformadas.
-5.  REANUDACIÓN: Si el script falla o se interrumpe, detecta el último hash escrito en 
+
+4.  REANUDACIÓN: Si el script falla o se interrumpe, detecta el último hash escrito en 
     hashes_exe.csv y continúa el proceso desde ese punto en el archivo maestro.
-6.  LIMPIEZA FINAL: Una vez que el filtrado finaliza o alcanza el límite, el archivo 
+
+5.  LIMPIEZA FINAL: Una vez que el filtrado finaliza o alcanza el límite, el archivo 
     maestro MASTER_SHA256_LIST.txt es borrado.
+
+6. COMMIT Y PUSH AUTOMÁTICO:
+    a. Se usa un bloque try-finally para garantizar que, si el script finaliza 
+       (normalmente o por error/interrupción), se ejecuten las operaciones de limpieza.
+    b. Se crea un commit local con el progreso actual (archivos hashes_exe.csv y maestro).
+    c. Se hace push a GitHub para guardar el progreso de forma remota.
 
 Todos los archivos finales se guardan en el directorio 'Scrap/ficheros'.
 """
@@ -55,8 +68,11 @@ OUTPUT_EXE_FILE = os.path.join(OUTPUT_DIR, "hashes_exe.csv")
 
 # Parámetros de la API
 TARGET_TAG = "exe"
-REQUEST_DELAY = 0.2
+REQUEST_DELAY = 0.5 
 TARGET_EXE_COUNT = 40000 
+
+# Variables de estado global para el manejador de señales
+global_state = {'interrupted': False, 'count': 0}
 
 # ------------------------------------------------------------------------------
 
@@ -132,76 +148,130 @@ def concatenar_y_limpiar_archivos(file_paths: list, master_output_file: str, dow
 
     except Exception as e:
         print(f"❌ Error durante la concatenación/limpieza: {e}")
+        
+# ------------------------------------------------------------------------------
+
+# --- 3. FUNCIONES DE GIT (ACTUALIZADO) ---
+
+def ejecutar_comando_git(comando: list, cwd: str) -> bool:
+    """Ejecuta un comando de Git en el directorio raíz del TFG (cwd)."""
+    try:
+        resultado = subprocess.run(
+            comando, 
+            cwd=cwd, 
+            check=True, 
+            capture_output=True, 
+            text=True
+        )
+        # Ignorar 'Nothing to commit' para permitir el push
+        if "nothing to commit" in resultado.stdout.lower():
+            return False 
+            
+        print(f"✅ Git OK: {comando[1]} | {resultado.stdout.strip()}")
+        return True
+    except subprocess.CalledProcessError as e:
+        # Esto sucede si el push falla o hay un error de PAT/credenciales.
+        print(f"❌ Git ERROR al ejecutar '{' '.join(comando)}':")
+        print(f"   Stderr: {e.stderr.strip()}")
+        return False
+    except FileNotFoundError:
+        print("❌ Error: Git no se encontró. Asegúrate de que esté instalado y en PATH.")
+        return False
+
+def manejar_limpieza_y_push(finished_all_hashes: bool, current_exe_count: int):
+    """
+    Realiza la limpieza condicional del fichero maestro y hace el commit y push de TODOS los archivos.
+    """
+    # Asume que la raíz del repositorio es un nivel superior a la carpeta 'Scrap'
+    root_dir = os.path.dirname(BASE_DIR) 
+
+    print("\n--- 7. COMMIT Y PUSH AUTOMÁTICO ---")
+    
+    # 1. Añadir TODOS los archivos modificados/creados ('git add .')
+    # Esto asegura que los scripts, logs y hashes sean incluidos.
+    print("➕ Añadiendo todos los archivos modificados al staging...")
+    ejecutar_comando_git(["git", "add", "."], root_dir)
+    
+    # 2. Manejo de la limpieza condicional del archivo maestro
+    if finished_all_hashes and current_exe_count >= TARGET_EXE_COUNT and os.path.exists(MASTER_HASH_FILE):
+        print(f"\n🗑️ LÍMITE ALCANZADO. Borrando fichero maestro: {os.path.basename(MASTER_HASH_FILE)}")
+        
+        # Eliminar el archivo físicamente
+        try:
+            os.remove(MASTER_HASH_FILE)
+            print("✅ Fichero maestro borrado correctamente.")
+        except Exception as e:
+            print(f"❌ No se pudo borrar el fichero maestro: {e}")
+            
+        # Ejecutar 'git rm' para registrar la eliminación en Git (si estaba rastreado)
+        ejecutar_comando_git(["git", "rm", "-f", os.path.relpath(MASTER_HASH_FILE, root_dir)], root_dir)
+    elif os.path.exists(MASTER_HASH_FILE):
+        print(f"✅ Maestro persiste: Aún no se alcanza el límite ({current_exe_count}/{TARGET_EXE_COUNT}).")
+
+
+    # 3. Crear mensaje de commit
+    commit_msg = f"PROGRESO: {current_exe_count} hashes EXE recolectados."
+    if current_exe_count >= TARGET_EXE_COUNT:
+         commit_msg = f"FINALIZADO: Objetivo de {TARGET_EXE_COUNT} hashes EXE alcanzado."
+    
+    # 4. Crear el Commit
+    if ejecutar_comando_git(["git", "commit", "-m", commit_msg], root_dir):
+        # 5. Hacer Push a GitHub (Solo si el commit fue exitoso)
+        print("\n📤 Intentando hacer push a GitHub...")
+        ejecutar_comando_git(["git", "push", "origin", "main"], root_dir)
+    else:
+        print("⚠️ No hay cambios detectados para hacer commit/push. Progreso guardado localmente.")
 
 # ------------------------------------------------------------------------------
 
-# --- 3. FUNCIONES DE FILTRADO Y REANUDACIÓN ---
+# --- 4. FUNCIONES DE FILTRADO Y REANUDACIÓN (Mantenidas) ---
 
 def obtener_punto_de_reanudacion(master_file: str, output_file: str) -> tuple[str | None, int]:
-    """
-    Determina el último hash procesado y el número de muestras EXE ya recolectadas 
-    leyendo el CSV de salida.
-    """
+    """Determina el último hash procesado y el número de muestras EXE ya recolectadas."""
     if not os.path.exists(output_file):
         return None, 0
-
     try:
         current_exe_count = 0
         last_hash = None
-        
         with open(output_file, 'r', encoding='utf-8') as f:
             reader = csv.reader(f, delimiter=';')
             try:
-                header = next(reader) # Saltar la cabecera
+                header = next(reader)
             except StopIteration:
                 return None, 0 
-            
             for row in reader:
                 if row:
                     last_hash = row[0] 
                     current_exe_count += 1
-
         if last_hash:
             print(f"\n⏳ Archivo CSV encontrado. {current_exe_count} EXE recolectados. Último hash procesado: {last_hash}")
-            
             with open(master_file, 'r', encoding='utf-8') as master:
                 for i, line in enumerate(master):
                     if line.strip().lower() == last_hash:
                         print(f"✅ Se reanudará la consulta después de la línea {i+1}.")
                         return last_hash, current_exe_count
-            
             print("⚠️ ¡ADVERTENCIA! El último hash procesado no se encontró en el archivo maestro.")
             return None, 0 
-
     except Exception as e:
         print(f"❌ Error al intentar determinar el punto de reanudación: {e}. Empezando desde el inicio.")
         return None, 0
 
 def consultar_y_obtener_datos(hash_value: str) -> dict | None:
-    """
-    Consulta la API y devuelve un dict con 'hash', 'signature' y 'tags' si es 'exe'.
-    Añadido manejo de excepciones JSON interno para mitigar el error 'NoneType'.
-    """
+    """Consulta la API y devuelve un dict con 'hash', 'signature' y 'tags' si es 'exe'."""
     if not API_KEY:
         print("❌ Error: La clave API no se ha cargada.")
         return None
-    
     payload = {'query': 'get_info', 'hash': hash_value}
     headers = {"Auth-Key": API_KEY}
-
     try:
         response = requests.post(MB_API_URL, data=payload, headers=headers, timeout=30)
         response.raise_for_status() 
-
         data = response.json()
         status = data.get('query_status')
-
         if status == 'ok' and data.get('data'):
             try:
-                # Bloque try-except para proteger contra JSON malformado o inesperado
                 sample_data = data['data'][0]
                 tags = sample_data.get('tags', [])
-                
                 if TARGET_TAG.lower() in [tag.lower() for tag in tags]:
                     return {
                         'hash': hash_value,
@@ -209,35 +279,26 @@ def consultar_y_obtener_datos(hash_value: str) -> dict | None:
                         'tags': ','.join(tags) 
                     }
             except IndexError:
-                # Ocurre si 'data' está presente pero es una lista vacía
                 print(f"⚠️ Respueta inesperada para {hash_value}: 'data' vacía.")
                 return None
             except Exception as e:
                 print(f"❌ Error al procesar JSON para {hash_value}: {e}")
                 return None
-            
         elif status == 'api_key_invalid':
             print("\n❌ ¡ERROR CRÍTICO! La clave API es inválida. Deteniendo la ejecución.")
-            exit()
-            
+            raise ValueError("API Key Inválida")
         return None
-
     except requests.exceptions.RequestException as e:
         print(f"\n❌ ERROR DE API/CONEXIÓN para {hash_value}: {e}. Retraso de 5s.")
         time.sleep(5)
         return None
 
 def filtrar_hashes_con_reanudacion():
-    """Ejecuta el filtrado con la lógica de reanudación, limitación y limpieza final."""
+    """Ejecuta el filtrado y devuelve el estado de finalización y el conteo."""
     if not os.path.exists(MASTER_HASH_FILE):
         print(f"❌ Error: Archivo maestro no encontrado: {os.path.basename(MASTER_HASH_FILE)}. Ejecute la descarga primero.")
-        return
+        return False, 0
     
-    if not API_KEY:
-        print("❌ Error: La clave API no se ha cargado. Revisa tu .env.")
-        return
-
-    # Determinar reanudación y conteo inicial
     last_processed_hash, current_exe_count = obtener_punto_de_reanudacion(MASTER_HASH_FILE, OUTPUT_EXE_FILE)
     
     write_mode = 'a'
@@ -249,9 +310,7 @@ def filtrar_hashes_con_reanudacion():
     finished_all_hashes = True
     total_hashes_processed = 0
     
-    # INICIO DEL PROCESO DE FILTRADO
     try:
-        # Abrir el CSV.
         is_new_file = not os.path.exists(OUTPUT_EXE_FILE) or current_exe_count == 0
         with open(OUTPUT_EXE_FILE, write_mode, newline='', encoding='utf-8') as csvfile:
             
@@ -264,6 +323,9 @@ def filtrar_hashes_con_reanudacion():
             with open(MASTER_HASH_FILE, 'r', encoding='utf-8') as infile:
                 for line in infile:
                     
+                    if global_state['interrupted']: # Detener si Ctrl+C fue presionado
+                        break
+                        
                     if current_exe_count >= TARGET_EXE_COUNT:
                         print(f"\n🛑 Límite alcanzado ({TARGET_EXE_COUNT} EXE). Deteniendo el proceso de filtrado.")
                         finished_all_hashes = True
@@ -296,49 +358,65 @@ def filtrar_hashes_con_reanudacion():
                 else: 
                     finished_all_hashes = True
 
+        return finished_all_hashes, current_exe_count
 
-    except requests.exceptions.RequestException as e:
-        finished_all_hashes = False
-        print(f"\n❌ ERROR DE API/CONEXIÓN: {e}. Guardando progreso y deteniendo...")
-        print("🔥 Vuelva a ejecutar el script para reanudar.")
-        return 
-    except Exception as e:
-        finished_all_hashes = False
-        print(f"\n❌ Ocurrió un error inesperado: {e}")
-        return
-    
-    # CÁLCULOS FINALES Y LIMPIEZA
-    print(f"\n--- Resumen Final ---")
-    print(f"Total de hashes consultados en esta sesión: {total_hashes_processed}")
-    print(f"Total de hashes EXE en {os.path.basename(OUTPUT_EXE_FILE)}: {current_exe_count}")
+    except Exception:
+        return False, current_exe_count
 
-    # BORRADO DEL FICHERO MAESTRO
-    if finished_all_hashes:
-        print(f"\n🗑️ Proceso de filtrado completado. Borrando fichero maestro: {os.path.basename(MASTER_HASH_FILE)}")
-        try:
-            os.remove(MASTER_HASH_FILE)
-            print("✅ Fichero maestro borrado correctamente.")
-        except Exception as e:
-            print(f"❌ No se pudo borrar el fichero maestro: {e}")
+# ------------------------------------------------------------------------------
 
+# --- 5. EJECUCIÓN PRINCIPAL (Con manejo de interrupción) ---
 
-# --- 4. EJECUCIÓN PRINCIPAL ---
+def handler(signum, frame):
+    """Maneja la señal de interrupción (Ctrl+C)."""
+    global_state['interrupted'] = True
+    print("\n\n🚨 ¡Interrupción detectada (Ctrl+C)! Se detendrá el bucle para guardar progreso...")
+
+# Configuración del manejador de señales
+signal.signal(signal.SIGINT, handler)
 
 if __name__ == "__main__":
     
-    # Asegura que exista la carpeta 'Scrap/ficheros'
+    finished_state = False
+    final_count = 0
+    
+    # 0. Asegura que exista la carpeta 'Scrap/ficheros'
     if not os.path.exists(os.path.dirname(OUTPUT_DIR)):
          os.makedirs(os.path.dirname(OUTPUT_DIR))
-    
-    # PASO 1: Descarga y Concatenación
-    if not os.path.exists(MASTER_HASH_FILE):
-        print("\n--- PASO 1: DESCARGA Y CONCATENACIÓN ---")
-        archivos_descargados = descargar_archivos_de_github(GITHUB_API_URL, DOWNLOAD_DIR)
-        concatenar_y_limpiar_archivos(archivos_descargados, MASTER_HASH_FILE, DOWNLOAD_DIR)
-    else:
-        print("\n--- PASO 1: SALTAR ---")
-        print(f"Archivo maestro {os.path.basename(MASTER_HASH_FILE)} ya existe. Saltando descarga y concatenación.")
+         
+    try:
+        # PASO 1: Descarga y Concatenación
+        if not os.path.exists(MASTER_HASH_FILE):
+            print("\n--- PASO 1: DESCARGA Y CONCATENACIÓN ---")
+            archivos_descargados = descargar_archivos_de_github(GITHUB_API_URL, DOWNLOAD_DIR)
+            concatenar_y_limpiar_archivos(archivos_descargados, MASTER_HASH_FILE, DOWNLOAD_DIR)
+        else:
+            print("\n--- PASO 1: SALTAR ---")
+            print(f"Archivo maestro {os.path.basename(MASTER_HASH_FILE)} ya existe. Saltando descarga y concatenación.")
 
-    # PASO 2: Filtrado y Reanudación
-    print("\n--- PASO 2: FILTRADO CON REANUDACIÓN Y LÍMITE ---")
-    filtrar_hashes_con_reanudacion()
+        # PASO 2: Filtrado y Reanudación
+        print("\n--- PASO 2: FILTRADO CON REANUDACIÓN Y LÍMITE ---")
+        finished_state, final_count = filtrar_hashes_con_reanudacion()
+        global_state['count'] = final_count 
+
+    except Exception as e:
+        print(f"\n❌ ERROR CRÍTICO en la fase de inicialización o filtrado: {e}")
+        
+    finally:
+        # El bloque FINALLY garantiza que el commit y push se ejecuten SIEMPRE
+        # (alcanzado el límite, Ctrl+C, o cualquier excepción no capturada).
+        
+        # Usamos el conteo que obtuvimos al salir del bucle.
+        current_count = final_count 
+        
+        # Si hubo una interrupción, el conteo podría no haberse actualizado si el error
+        # ocurrió muy temprano. Usamos el conteo del estado global si es más alto.
+        if global_state['interrupted']:
+            current_count = global_state['count'] 
+
+        if current_count > 0 or os.path.exists(OUTPUT_EXE_FILE):
+             manejar_limpieza_y_push(finished_state, current_count)
+        else:
+             print("\n⚠️ No se ha realizado ningún progreso guardable. Finalizando.")
+        
+        sys.exit(0)
