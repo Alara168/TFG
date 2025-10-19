@@ -189,18 +189,19 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
     payload = {'query': 'get_file', 'sha256_hash': sha256_hash}
     headers = {"Auth-Key": API_KEY}
     
+    # ***************** INICIO DEL BLOQUE REFORZADO *****************
     try:
         response = requests.post(API_URL, data=payload, headers=headers, timeout=120)
         
-        # ************ SOLUCIÓN A 'Expecting value' ************
-        # 1. Si la respuesta está vacía, es un error del servidor/clave.
+        # 1. Si la respuesta está vacía (posiblemente 403 con cuerpo nulo), tratar como fallo.
         if not response.content:
-            print(f"❌ Error API: Respuesta vacía o nula para {sha256_hash}. (Posible clave inválida o error 403 sin contenido).")
+            print(f"❌ Error API: Respuesta vacía o nula para {sha256_hash}. (Verifique clave y permisos).")
             return False
 
-        response.raise_for_status() # Maneja 4xx y 5xx
+        # 2. Manejar 4xx/5xx que tienen contenido
+        response.raise_for_status() 
 
-        # 2. Intentar decodificar como JSON para buscar errores específicos (Ej: file_not_found)
+        # 3. Intentar decodificar como JSON para buscar errores específicos (Ej: file_not_found)
         try:
             error_data = response.json()
             status = error_data.get('query_status', 'unknown_error')
@@ -215,11 +216,10 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
             return False 
 
         except json.JSONDecodeError:
-            # 3. ÉXITO: Si falla la decodificación, es porque tenemos el binario ZIP
+            # 4. ÉXITO: Si falla la decodificación, es porque tenemos el binario ZIP
             zip_data = response.content
             print(f"🚀 Descargado ZIP de {sha256_hash}. Tamaño: {len(zip_data)} bytes. Lanzando hilo...")
             
-            # 4. Lanzar hilo de descompresión
             thread_limiter.acquire()
             thread = threading.Thread(target=unzip_sample, 
                                       args=(zip_data, sha256_hash, SAMPLES_DIR, thread_limiter))
@@ -227,8 +227,15 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
             
             return True
 
+    # ************ CAPTURAR ERRORES DE CONEXIÓN Y DECODIFICACIÓN ************
+    except json.JSONDecodeError as e:
+        # Aunque el punto 3 ya lo captura para el éxito, si falla en la línea 1 
+        # (que ya no debería, pero por si acaso), lo manejamos.
+        print(f"❌ Error de solicitud para {sha256_hash}: Decodificación JSON inesperada: {e}")
+        return False
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error de solicitud para {sha256_hash}: {e}")
+        # Esto captura timeouts, errores de DNS, o errores HTTP no manejados por raise_for_status()
+        print(f"❌ Error de solicitud para {sha256_hash}: Fallo de conexión o HTTP: {e}")
         return False
         
 # ------------------------------------------------------------------------------
