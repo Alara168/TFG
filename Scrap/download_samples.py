@@ -19,6 +19,9 @@ API_KEY = os.getenv("MALWAREBAZAAR_API_KEY")
 # Contraseña estándar de MalwareBazaar para ZIPs cifrados
 ZIP_PASSWORD = b"infected" 
 
+# Límite de tamaño: 1.0 MB en bytes (1 * 1024 * 1024)
+MAX_UNCOMPRESSED_SIZE_BYTES = 1048576
+
 # Rutas y URLs
 API_URL = "https://mb-api.abuse.ch/api/v1/"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -74,6 +77,7 @@ def manejar_limpieza_y_push(current_download_count: int):
     Realiza el commit y push de todos los archivos modificados (logs, status, muestras).
     """
     root_dir = os.path.dirname(BASE_DIR) 
+    # El total de muestras en disco es el total final de muestras *válidas*
     total_samples = len([name for name in os.listdir(SAMPLES_DIR) if name.endswith('.bin')])
 
     print("\n--- 7. COMMIT Y PUSH AUTOMÁTICO DE DESCARGAS ---")
@@ -83,9 +87,9 @@ def manejar_limpieza_y_push(current_download_count: int):
     ejecutar_comando_git(["git", "add", "."], root_dir)
     
     # 2. Crear mensaje de commit
-    commit_msg = f"DESCARGAS: {current_download_count} muestras descargadas hoy. Total: {total_samples}."
+    commit_msg = f"DESCARGAS: {current_download_count} solicitudes de descarga hoy (válidas: {total_samples})."
     if current_download_count >= DAILY_DOWNLOAD_LIMIT:
-         commit_msg = f"DESCARGAS: Límite diario de {DAILY_DOWNLOAD_LIMIT} muestras alcanzado. Total: {total_samples}."
+        commit_msg = f"DESCARGAS: Límite diario de {DAILY_DOWNLOAD_LIMIT} solicitudes alcanzado (válidas: {total_samples})."
     
     # 3. Crear el Commit
     if ejecutar_comando_git(["git", "commit", "-m", commit_msg], root_dir):
@@ -161,7 +165,7 @@ def load_daily_status() -> dict:
                 print(f"📅 ¡Nuevo día detectado! Contador diario reiniciado.")
                 return default_status
             else:
-                print(f"⏳ Continuación: {daily_count} muestras descargadas hoy. Restantes: {DAILY_DOWNLOAD_LIMIT - daily_count}")
+                print(f"⏳ Continuación: {daily_count} solicitudes de descarga hoy. Restantes: {DAILY_DOWNLOAD_LIMIT - daily_count}")
                 return status
                 
     except Exception:
@@ -201,40 +205,57 @@ def log_processed_hash(hash_value: str):
 
 def unzip_sample(zip_data: bytes, sha256_hash: str, output_path: str, thread_limiter: threading.Semaphore):
     """
-    Descomprime el ZIP cifrado en memoria usando pyzipper para soportar AES. 
-    Solo guarda el fichero final renombrado.
+    Descomprime el ZIP cifrado en memoria, guarda el binario en disco y,
+    si es > 1 MB, lo ELIMINA inmediatamente del disco.
     """
+    final_file_name = f"{sha256_hash}.bin"
+    final_file_path = os.path.join(output_path, final_file_name)
+
     try:
         zip_buffer = io.BytesIO(zip_data)
         
-        # 🚨 USO DE pyzipper.AESZipFile
         with pyzipper.AESZipFile(zip_buffer, 'r') as zf:
-            
-            # Establecer la contraseña
             zf.pwd = ZIP_PASSWORD
-            
             member_name = zf.namelist()[0] 
-            final_file_name = f"{sha256_hash}.bin"
-            final_file_path = os.path.join(output_path, final_file_name)
-
+            
             # Leer el contenido del archivo comprimido
             file_content = zf.read(member_name)
             
-            # Guardar el contenido directamente al destino final
+            # 1. GUARDAR EN DISCO INMEDIATAMENTE
             with open(final_file_path, 'wb') as f:
                 f.write(file_content)
             
-            print(f"✅ [Hilo {threading.get_ident()}] Muestra descomprimida y guardada: {final_file_name}")
+            # 2. APLICAR FILTRO DE TAMAÑO Y ELIMINAR SI ES NECESARIO
+            content_size = len(file_content)
+            
+            if content_size > MAX_UNCOMPRESSED_SIZE_BYTES:
+                # ELIMINACIÓN EXPLÍCITA DEL DISCO
+                os.remove(final_file_path)
+                print(f"💣 [Hilo {threading.get_ident()}] ¡Fichero ELIMINADO! {sha256_hash}. Tamaño ({content_size / 1024**2:.2f} MB) excede el límite de 1.0 MB.")
+                return 
+
+            # Si pasa el filtro (<= 1MB), permanece en disco
+            print(f"✅ [Hilo {threading.get_ident()}] Muestra descomprimida y guardada: {final_file_name} ({content_size / 1024**2:.2f} MB)")
 
     except pyzipper.BadZipFile:
         print(f"❌ [Hilo {threading.get_ident()}] Error de ZIP: El archivo {sha256_hash} está corrupto.")
+        # Intentar limpiar si el archivo ZIP corrupto llegó a guardarse 
+        if os.path.exists(final_file_path):
+            os.remove(final_file_path)
+            
     except Exception as e:
         print(f"❌ [Hilo {threading.get_ident()}] Error desconocido al descomprimir {sha256_hash}: {e}")
+        if os.path.exists(final_file_path):
+            os.remove(final_file_path)
     finally:
         thread_limiter.release()
 
-def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaphore):
-    """Descarga la muestra, lanza un hilo de descompresión."""
+def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaphore) -> bool:
+    """
+    Descarga la muestra y lanza el hilo de descompresión.
+    Devuelve True si la descarga fue exitosa y se lanzó el hilo.
+    Devuelve False si hubo un error fatal de API/conexión.
+    """
     
     payload = {'query': 'get_file', 'sha256_hash': sha256_hash}
     headers = {"Auth-Key": API_KEY}
@@ -242,46 +263,42 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
     try:
         response = requests.post(API_URL, data=payload, headers=headers, timeout=120)
         
-        # 1. Manejo de cuerpo vacío
         if not response.content:
-            print(f"❌ Error API: Respuesta vacía o nula para {sha256_hash}. (Clave/Permisos fallidos).")
-            return False
+            print(f"❌ Error API: Respuesta vacía o nula para {sha256_hash}.")
+            return False 
 
-        # 2. Manejar 4xx y 5xx.
         response.raise_for_status() 
 
-        # 3. Intentar decodificar como JSON para buscar errores específicos (No ZIP)
+        # Intentar decodificar como JSON para buscar errores específicos (en lugar de ZIP)
         try:
             error_data = response.json()
             status = error_data.get('query_status', 'unknown_error')
             
-            if status == 'file_not_found':
-                print(f"❌ Error API: Hash no encontrado para descarga: {sha256_hash}")
-            elif status == 'api_key_invalid':
-                print(f"❌ ¡ERROR CRÍTICO! La clave enviada es inválida.")
-                global_state['interrupted'] = True
-            else:
-                print(f"❌ Error API (JSON): {status} para {sha256_hash}")
+            if status in ['file_not_found', 'api_key_invalid']:
+                print(f"❌ Error API: {status} para {sha256_hash}")
+                if status == 'api_key_invalid':
+                    global_state['interrupted'] = True
+                return False 
+            
+            print(f"❌ Error API (JSON): {status} para {sha256_hash}")
             return False 
 
         except json.JSONDecodeError:
-            # 4. ÉXITO: Si falla la decodificación, es porque tenemos el binario ZIP
+            # ÉXITO DE DESCARGA: Tenemos el binario ZIP
             zip_data = response.content
-            print(f"🚀 Descargado ZIP de {sha256_hash}. Tamaño: {len(zip_data)} bytes. Lanzando hilo...")
+            print(f"🚀 Descargado ZIP de {sha256_hash}. Tamaño comprimido: {len(zip_data)} bytes. Lanzando hilo...")
             
             thread_limiter.acquire()
             thread = threading.Thread(target=unzip_sample, 
                                       args=(zip_data, sha256_hash, SAMPLES_DIR, thread_limiter))
             thread.start()
             
-            return True
+            return True # Solicitud API exitosa y hilo lanzado
 
     except requests.exceptions.RequestException as e:
-        # Captura errores de conexión y el molesto "Expecting value"
         print(f"❌ Error de solicitud para {sha256_hash}: Fallo de conexión o HTTP: {e}")
         return False
     except Exception as e:
-        # Captura genérica de emergencia
         print(f"❌ Error inesperado durante la descarga/lanzamiento de hilo para {sha256_hash}: {e}")
         return False
         
@@ -292,7 +309,6 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
 def main_download_loop():
     """Bucle principal de descarga con límites y persistencia."""
     
-    # 🚨 PUNTOS DE CONTROL: Si la clave falla, salimos.
     if not check_api_key():
         return 0
 
@@ -302,7 +318,7 @@ def main_download_loop():
     current_count = daily_status['daily_count']
     
     if current_count >= DAILY_DOWNLOAD_LIMIT:
-        print(f"\n🛑 Límite de {DAILY_DOWNLOAD_LIMIT} muestras alcanzado para hoy.")
+        print(f"\n🛑 Límite de {DAILY_DOWNLOAD_LIMIT} solicitudes alcanzado para hoy.")
         return current_count
 
     hashes_to_process = []
@@ -330,20 +346,26 @@ def main_download_loop():
         if global_state['interrupted'] or current_count >= DAILY_DOWNLOAD_LIMIT:
             break
             
-        print(f"\n[{current_count+1}/{DAILY_DOWNLOAD_LIMIT}] Procesando hash: {hash_value}")
-
-        if download_sample_and_unzip(hash_value, thread_limiter):
+        print(f"\n[{current_count+1}/{DAILY_DOWNLOAD_LIMIT}] Intentando hash: {hash_value}")
+        
+        # 1. Registrar el hash como PROCESADO (intentado)
+        log_processed_hash(hash_value)
+        
+        download_success = download_sample_and_unzip(hash_value, thread_limiter)
+        
+        # 2. SIEMPRE AUMENTAR EL CONTADOR si la solicitud fue enviada correctamente a la API
+        if download_success:
             current_count += 1
-            log_processed_hash(hash_value)
             daily_status['daily_count'] = current_count
             save_daily_status(daily_status)
             global_state['count'] = current_count
-            time.sleep(REQUEST_DELAY) 
+            time.sleep(REQUEST_DELAY) # Delay después de una solicitud exitosa
         else:
-            log_processed_hash(hash_value) 
-            time.sleep(5) 
+            time.sleep(5) # Delay mayor después de un fallo de conexión/API/Hash no encontrado
+
             
     print("⏳ Esperando a que terminen los hilos de descompresión activos...")
+    # Recolectar todos los permisos del semáforo para asegurar que todos los hilos han terminado
     for i in range(MAX_THREADS):
         thread_limiter.acquire()
     for i in range(MAX_THREADS):
@@ -375,11 +397,12 @@ if __name__ == "__main__":
         print(f"\n❌ ERROR CRÍTICO en la fase de descarga: {e}")
         
     finally:
+        # Usar global_state['count'] si se interrumpió o el final_count
         count_for_commit = global_state.get('count', final_count)
             
         if count_for_commit > 0 or os.path.exists(DOWNLOAD_LOG_FILE):
-             manejar_limpieza_y_push(count_for_commit)
+            manejar_limpieza_y_push(count_for_commit)
         else:
-             print("\n⚠️ No se ha realizado ningún progreso guardable. Finalizando.")
+            print("\n⚠️ No se ha realizado ningún progreso guardable. Finalizando.")
         
         sys.exit(0)
