@@ -35,7 +35,7 @@ SAMPLES_DIR = os.path.join(OUTPUT_DIR, "muestras")
 
 # Límite diario de descargas
 DAILY_DOWNLOAD_LIMIT = 2000 
-REQUEST_DELAY = 1.5 
+REQUEST_DELAY = 0.2 
 MAX_THREADS = 10 
 
 # Variables de estado global
