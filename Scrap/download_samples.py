@@ -4,7 +4,7 @@ import json
 import csv
 import time
 import threading
-import zipfile
+import pyzipper
 import io
 import subprocess 
 from datetime import date
@@ -132,7 +132,6 @@ def check_api_key():
             return True
         
         except json.JSONDecodeError:
-             # Si no es JSON y no es un binario ZIP (que no esperamos en get_info), es un error de formato.
              print("❌ ERROR: La API respondió con un formato inesperado (no JSON). Esto es un signo de clave inválida o permisos insuficientes.")
              return False
 
@@ -201,23 +200,33 @@ def log_processed_hash(hash_value: str):
 ## 4. Funciones de Concurrencia y Descompresión
 
 def unzip_sample(zip_data: bytes, sha256_hash: str, output_path: str, thread_limiter: threading.Semaphore):
-    """Descomprime el ZIP cifrado en memoria y solo guarda el fichero final renombrado."""
+    """
+    Descomprime el ZIP cifrado en memoria usando pyzipper para soportar AES. 
+    Solo guarda el fichero final renombrado.
+    """
     try:
         zip_buffer = io.BytesIO(zip_data)
         
-        with zipfile.ZipFile(zip_buffer, 'r') as zf:
+        # 🚨 USO DE pyzipper.AESZipFile
+        with pyzipper.AESZipFile(zip_buffer, 'r') as zf:
+            
+            # Establecer la contraseña
+            zf.pwd = ZIP_PASSWORD
+            
             member_name = zf.namelist()[0] 
             final_file_name = f"{sha256_hash}.bin"
             final_file_path = os.path.join(output_path, final_file_name)
 
-            file_content = zf.read(member_name, pwd=ZIP_PASSWORD)
+            # Leer el contenido del archivo comprimido
+            file_content = zf.read(member_name)
             
+            # Guardar el contenido directamente al destino final
             with open(final_file_path, 'wb') as f:
                 f.write(file_content)
             
             print(f"✅ [Hilo {threading.get_ident()}] Muestra descomprimida y guardada: {final_file_name}")
 
-    except zipfile.BadZipFile:
+    except pyzipper.BadZipFile:
         print(f"❌ [Hilo {threading.get_ident()}] Error de ZIP: El archivo {sha256_hash} está corrupto.")
     except Exception as e:
         print(f"❌ [Hilo {threading.get_ident()}] Error desconocido al descomprimir {sha256_hash}: {e}")
@@ -238,7 +247,7 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
             print(f"❌ Error API: Respuesta vacía o nula para {sha256_hash}. (Clave/Permisos fallidos).")
             return False
 
-        # 2. Manejar 4xx y 5xx. Si es un error HTTP, puede fallar aquí.
+        # 2. Manejar 4xx y 5xx.
         response.raise_for_status() 
 
         # 3. Intentar decodificar como JSON para buscar errores específicos (No ZIP)
@@ -270,6 +279,10 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
     except requests.exceptions.RequestException as e:
         # Captura errores de conexión y el molesto "Expecting value"
         print(f"❌ Error de solicitud para {sha256_hash}: Fallo de conexión o HTTP: {e}")
+        return False
+    except Exception as e:
+        # Captura genérica de emergencia
+        print(f"❌ Error inesperado durante la descarga/lanzamiento de hilo para {sha256_hash}: {e}")
         return False
         
 # ------------------------------------------------------------------------------
