@@ -44,7 +44,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ------------------------------------------------------------------------------
 
-# --- 2. FUNCIONES AUXILIARES DE GIT ---
+## 2. Funciones Auxiliares de Git y Verificación
 
 def ejecutar_comando_git(comando: list, cwd: str) -> bool:
     """Ejecuta un comando de Git en el directorio raíz del TFG (cwd)."""
@@ -95,9 +95,54 @@ def manejar_limpieza_y_push(current_download_count: int):
     else:
         print("⚠️ No hay cambios detectados para hacer commit/push. Progreso guardado localmente.")
 
+def check_api_key():
+    """Verifica si la clave API está configurada y es válida antes de iniciar el loop."""
+    if not API_KEY:
+        print("❌ ERROR CRÍTICO: La clave MALWAREBAZAAR_API_KEY no está configurada o se cargó vacía.")
+        return False
+        
+    TEST_HASH = "094fd325049b8a9cf6d3e5ef2a6d4cc6a567d7d49c35f8bb8dd9e3c6acf3d78d"
+    
+    payload = {'query': 'get_info', 'hash': TEST_HASH}
+    headers = {"Auth-Key": API_KEY}
+    
+    print("🔬 Verificando la validez de la clave API con una consulta de prueba...")
+
+    try:
+        response = requests.post(API_URL, data=payload, headers=headers, timeout=10)
+        
+        if response.status_code == 403:
+            print("❌ ERROR: La clave API fue rechazada (HTTP 403 Forbidden). Verifique su clave o permisos de descarga.")
+            return False
+
+        # Si el JSON se decodifica correctamente, la clave es válida
+        try:
+            data = response.json()
+            status = data.get('query_status')
+            
+            if status == 'api_key_invalid':
+                print("❌ ERROR: La API reportó que la clave es inválida. Deteniendo la ejecución.")
+                return False
+                
+            if status == 'ok' or status == 'hash_not_found':
+                print("✅ Clave API verificada y válida. Iniciando descargas.")
+                return True
+            
+            print(f"⚠️ Advertencia: Respuesta inesperada de la API: {status}. Procediendo con la descarga.")
+            return True
+        
+        except json.JSONDecodeError:
+             # Si no es JSON y no es un binario ZIP (que no esperamos en get_info), es un error de formato.
+             print("❌ ERROR: La API respondió con un formato inesperado (no JSON). Esto es un signo de clave inválida o permisos insuficientes.")
+             return False
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ ERROR CRÍTICO: Fallo de conexión o red durante la verificación: {e}. No se puede continuar.")
+        return False
+
 # ------------------------------------------------------------------------------
 
-# --- 3. FUNCIONES DE ESTADO Y LOGS ---
+## 3. Funciones de Estado y Logs
 
 def load_daily_status() -> dict:
     """Carga el estado de descargas diarias y aplica la lógica de reinicio."""
@@ -121,7 +166,6 @@ def load_daily_status() -> dict:
                 return status
                 
     except Exception:
-        print(f"❌ Error al cargar/procesar el estado diario. Reiniciando el contador.")
         return default_status
 
 def save_daily_status(status: dict):
@@ -130,8 +174,8 @@ def save_daily_status(status: dict):
     try:
         with open(DAILY_STATUS_FILE, 'w') as f:
             json.dump(status, f, indent=4)
-    except Exception as e:
-        print(f"❌ Error al guardar el estado diario: {e}")
+    except Exception:
+        pass
 
 def load_processed_hashes() -> set:
     """Carga el set de hashes que ya han sido procesados (descargados/intentados)."""
@@ -154,13 +198,10 @@ def log_processed_hash(hash_value: str):
 
 # ------------------------------------------------------------------------------
 
-# --- 4. FUNCIONES DE CONCURRENCIA Y DESCOMPRESIÓN ---
+## 4. Funciones de Concurrencia y Descompresión
 
 def unzip_sample(zip_data: bytes, sha256_hash: str, output_path: str, thread_limiter: threading.Semaphore):
-    """
-    Función objetivo del hilo: descomprime el ZIP cifrado en memoria 
-    y solo guarda el fichero final renombrado.
-    """
+    """Descomprime el ZIP cifrado en memoria y solo guarda el fichero final renombrado."""
     try:
         zip_buffer = io.BytesIO(zip_data)
         
@@ -189,19 +230,18 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
     payload = {'query': 'get_file', 'sha256_hash': sha256_hash}
     headers = {"Auth-Key": API_KEY}
     
-    # ***************** INICIO DEL BLOQUE REFORZADO *****************
     try:
         response = requests.post(API_URL, data=payload, headers=headers, timeout=120)
         
-        # 1. Si la respuesta está vacía (posiblemente 403 con cuerpo nulo), tratar como fallo.
+        # 1. Manejo de cuerpo vacío
         if not response.content:
-            print(f"❌ Error API: Respuesta vacía o nula para {sha256_hash}. (Verifique clave y permisos).")
+            print(f"❌ Error API: Respuesta vacía o nula para {sha256_hash}. (Clave/Permisos fallidos).")
             return False
 
-        # 2. Manejar 4xx/5xx que tienen contenido
+        # 2. Manejar 4xx y 5xx. Si es un error HTTP, puede fallar aquí.
         response.raise_for_status() 
 
-        # 3. Intentar decodificar como JSON para buscar errores específicos (Ej: file_not_found)
+        # 3. Intentar decodificar como JSON para buscar errores específicos (No ZIP)
         try:
             error_data = response.json()
             status = error_data.get('query_status', 'unknown_error')
@@ -227,24 +267,22 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
             
             return True
 
-    # ************ CAPTURAR ERRORES DE CONEXIÓN Y DECODIFICACIÓN ************
-    except json.JSONDecodeError as e:
-        # Aunque el punto 3 ya lo captura para el éxito, si falla en la línea 1 
-        # (que ya no debería, pero por si acaso), lo manejamos.
-        print(f"❌ Error de solicitud para {sha256_hash}: Decodificación JSON inesperada: {e}")
-        return False
     except requests.exceptions.RequestException as e:
-        # Esto captura timeouts, errores de DNS, o errores HTTP no manejados por raise_for_status()
+        # Captura errores de conexión y el molesto "Expecting value"
         print(f"❌ Error de solicitud para {sha256_hash}: Fallo de conexión o HTTP: {e}")
         return False
         
 # ------------------------------------------------------------------------------
 
-# --- 5. FUNCIÓN PRINCIPAL ---
+## 5. Función Principal
 
 def main_download_loop():
     """Bucle principal de descarga con límites y persistencia."""
     
+    # 🚨 PUNTOS DE CONTROL: Si la clave falla, salimos.
+    if not check_api_key():
+        return 0
+
     daily_status = load_daily_status()
     processed_hashes = load_processed_hashes()
     
@@ -271,8 +309,6 @@ def main_download_loop():
                         hashes_to_process.append(hash_value)
     except Exception:
         return current_count
-
-    print(f"Total de hashes (nuevos) para intentar descargar: {len(hashes_to_process)}")
     
     thread_limiter = threading.BoundedSemaphore(MAX_THREADS)
     
@@ -288,13 +324,12 @@ def main_download_loop():
             log_processed_hash(hash_value)
             daily_status['daily_count'] = current_count
             save_daily_status(daily_status)
-            global_state['count'] = current_count # Actualizar estado global
+            global_state['count'] = current_count
             time.sleep(REQUEST_DELAY) 
         else:
             log_processed_hash(hash_value) 
             time.sleep(5) 
             
-    # 4. Finalización (espera de hilos)
     print("⏳ Esperando a que terminen los hilos de descompresión activos...")
     for i in range(MAX_THREADS):
         thread_limiter.acquire()
@@ -307,7 +342,7 @@ def main_download_loop():
 
 # ------------------------------------------------------------------------------
 
-# --- 6. MANEJO DE INTERRUPCIÓN Y EJECUCIÓN ---
+## 6. Manejo de Interrupción y Ejecución
 
 def handler(signum, frame):
     """Maneja la señal de interrupción (Ctrl+C)."""
@@ -327,12 +362,7 @@ if __name__ == "__main__":
         print(f"\n❌ ERROR CRÍTICO en la fase de descarga: {e}")
         
     finally:
-        # El bloque FINALLY garantiza que el commit y push se ejecuten SIEMPRE.
-        
-        # Usamos el conteo final del día (no el total histórico) para el mensaje de commit.
-        count_for_commit = global_state.get('count', 0)
-        if count_for_commit == 0 and final_count > 0:
-            count_for_commit = final_count
+        count_for_commit = global_state.get('count', final_count)
             
         if count_for_commit > 0 or os.path.exists(DOWNLOAD_LOG_FILE):
              manejar_limpieza_y_push(count_for_commit)
