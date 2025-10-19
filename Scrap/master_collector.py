@@ -290,7 +290,7 @@ def consultar_y_obtener_datos(hash_value: str) -> dict | None:
         return None
     except requests.exceptions.RequestException as e:
         print(f"\n❌ ERROR DE API/CONEXIÓN para {hash_value}: {e}. Retraso de 5s.")
-        time.sleep(5)
+        time.sleep(1)
         return None
 
 def filtrar_hashes_con_reanudacion():
