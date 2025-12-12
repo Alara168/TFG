@@ -6,7 +6,7 @@ import math
 from smda.Disassembler import Disassembler
 
 # CONFIGURACIÓN
-MALWARE_FOLDER = "ficheros/muestras/ficheros/muestras" 
+MALWARE_FOLDER = "ficheros/muestras_malware/" 
 OUTPUT_CSV = "dataset_mil_features_pure.csv"
 
 # LISTAS DE INTERÉS
