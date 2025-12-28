@@ -30,7 +30,7 @@ def consultar_malware_hash(hash_value: str):
     Consulta los metadatos de un hash específico en MalwareBazaar.
     """
     if not API_KEY:
-        print("❌ Error: La clave API (MALWAREBAZAAR_API_KEY) no se ha cargado. Revisa tu archivo .env.")
+        print("Error: La clave API (MALWAREBAZAAR_API_KEY) no se ha cargado. Revisa tu archivo .env.")
         return
     
     print(f"🔎 Consultando información para el hash: {hash_value}...")
@@ -45,7 +45,7 @@ def consultar_malware_hash(hash_value: str):
         
         # Verificar el estado de la consulta
         status = data.get('query_status')
-        print(f"✅ Estado de la consulta: {status}\n")
+        print(f"Estado de la consulta: {status}\n")
 
         if status == 'ok':
             # Si el sample es conocido, devuelve la lista de resultados (generalmente un elemento)
@@ -63,25 +63,25 @@ def consultar_malware_hash(hash_value: str):
                 # print(json.dumps(sample_data, indent=4)) 
                 
             else:
-                print("❌ Error: La respuesta es 'ok', pero no contiene datos del sample.")
+                print("Error: La respuesta es 'ok', pero no contiene datos del sample.")
                 
         elif status == 'hash_not_found':
-            print("⚠️ El hash proporcionado no se encontró en la base de datos de MalwareBazaar.")
+            print("El hash proporcionado no se encontró en la base de datos de MalwareBazaar.")
         
         elif status == 'api_key_invalid':
-            print("❌ Error de Autenticación: La clave 'Auth-Key' es inválida.")
+            print("Error de Autenticación: La clave 'Auth-Key' es inválida.")
         
         else:
-            print(f"⚠️ Estado desconocido de la API: {status}")
+            print(f"Estado desconocido de la API: {status}")
 
 
     except requests.exceptions.HTTPError as e:
-        print(f"❌ Error HTTP: {e}")
-        print("🔥 Verifica tu clave API. Un 403 o 400 suele indicar un problema con la autenticación o el formato de la solicitud.")
+        print(f"Error HTTP: {e}")
+        print("Verifica tu clave API. Un 403 o 400 suele indicar un problema con la autenticación o el formato de la solicitud.")
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error de conexión: {e}")
+        print(f"Error de conexión: {e}")
     except json.JSONDecodeError:
-        print("❌ Error: La respuesta de la API no es un JSON válido.")
+        print("Error: La respuesta de la API no es un JSON válido.")
 
 if __name__ == "__main__":
     consultar_malware_hash(TARGET_HASH)

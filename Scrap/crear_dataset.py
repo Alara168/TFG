@@ -6,7 +6,8 @@ import math
 from smda.Disassembler import Disassembler
 
 # CONFIGURACIÓN
-MALWARE_FOLDER = "ficheros/muestras_malware/" 
+MALWARE_FOLDER = "ficheros/muestras_malware/"
+BENIGN_FOLDER = "ficheros/muestras_benignas/" 
 OUTPUT_CSV = "dataset_mil_features_pure.csv"
 
 # LISTAS DE INTERÉS
@@ -70,7 +71,7 @@ def get_import_mapping(pe):
                         continue
     return import_map
 
-def analyze_binary(file_path):
+def analyze_binary(file_path, is_malware):
     features_list = []
     file_hash = calculate_hash(file_path)
     filename = os.path.basename(file_path)
@@ -79,7 +80,9 @@ def analyze_binary(file_path):
 
     try:
         # 1. Analizar Imports con PEfile
-        pe = pefile.PE(file_path)
+        pe = pefile.PE(file_path, fast_load=True)
+        if not pe.is_exe() and not pe.is_dll():
+            return []
         import_map = get_import_mapping(pe)
         base_address = pe.OPTIONAL_HEADER.ImageBase
         
@@ -150,7 +153,8 @@ def analyze_binary(file_path):
                 'num_edges': num_edges,
                 'cyclomatic_complexity': num_edges - num_blocks + 2, # Fórmula simple
                 'api_calls_count': 0,
-                'entropy': entropy_value
+                'entropy': entropy_value,
+                'malware': is_malware
             }
 
             # Inicializar contadores
@@ -201,33 +205,37 @@ def analyze_binary(file_path):
     return features_list
 
 def main():
-    if not os.path.exists(MALWARE_FOLDER):
-        print("Error: Crea la carpeta de malware o ajusta la ruta.")
-        return
-
     all_data = []
-    files = [f for f in os.listdir(MALWARE_FOLDER) if os.path.isfile(os.path.join(MALWARE_FOLDER, f))]
     
-    print(f"Total archivos: {len(files)}")
+    # Definimos qué carpetas procesar y qué etiqueta ponerles
+    folders_to_process = [
+        (BENIGN_FOLDER, 0),
+        (MALWARE_FOLDER, 1)
+    ]
 
-    for i, f in enumerate(files):
-        path = os.path.join(MALWARE_FOLDER, f)
-        res = analyze_binary(path)
-        all_data.extend(res)
-        
-        if (i+1) % 5 == 0:
-            print(f"Guardando parcial {i+1}...")
-            pd.DataFrame(all_data).to_csv(OUTPUT_CSV, index=False)
-        if (i > 20):
-            break
+    for folder_path, label in folders_to_process:
+        if not os.path.exists(folder_path):
+            print(f"[-] Saltando: {folder_path} (no existe)")
+            continue
+
+        files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+        print(f"\n[+] Procesando {len(files)} archivos en {folder_path} (Etiqueta: {label})")
+
+        for i, f in enumerate(files):
+            path = os.path.join(folder_path, f)
+            res = analyze_binary(path, label) # Pasamos la etiqueta (0 o 1)
+            all_data.extend(res)
+            
+            # Guardar cada cierto tiempo para seguridad
+            if (i+1) % 20 == 0:
+                pd.DataFrame(all_data).to_csv(OUTPUT_CSV, index=False)
 
     if all_data:
         df = pd.DataFrame(all_data)
         df.to_csv(OUTPUT_CSV, index=False)
-        print(f"¡Hecho! Dataset guardado en {OUTPUT_CSV}")
-        print(df.head())
+        print(f"\n[!] ¡Hecho! Dataset final guardado en {OUTPUT_CSV}")
     else:
-        print("No se extrajeron datos. Revisa si los binarios son ejecutables válidos.")
+        print("No se extrajeron datos.")
 
 if __name__ == "__main__":
     main()

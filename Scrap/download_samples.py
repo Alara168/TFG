@@ -62,14 +62,14 @@ def ejecutar_comando_git(comando: list, cwd: str) -> bool:
         if "nothing to commit" in resultado.stdout.lower():
             return False 
             
-        print(f"✅ Git OK: {comando[1]} | {resultado.stdout.strip()}")
+        print(f"Git OK: {comando[1]} | {resultado.stdout.strip()}")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"❌ Git ERROR al ejecutar '{' '.join(comando)}':")
-        print(f"   Stderr: {e.stderr.strip()}")
+        print(f"Git ERROR al ejecutar '{' '.join(comando)}':")
+        print(f"Stderr: {e.stderr.strip()}")
         return False
     except FileNotFoundError:
-        print("❌ Error: Git no se encontró. Asegúrate de que esté instalado y en PATH.")
+        print("Error: Git no se encontró. Asegúrate de que esté instalado y en PATH.")
         return False
 
 def manejar_limpieza_y_push(current_download_count: int):
@@ -83,7 +83,7 @@ def manejar_limpieza_y_push(current_download_count: int):
     print("\n--- 7. COMMIT Y PUSH AUTOMÁTICO DE DESCARGAS ---")
     
     # 1. Añadir TODOS los archivos modificados/creados ('git add .')
-    print("➕ Añadiendo todos los archivos modificados (logs, status, muestras) al staging...")
+    print("Añadiendo todos los archivos modificados (logs, status, muestras) al staging...")
     ejecutar_comando_git(["git", "add", "."], root_dir)
     
     # 2. Crear mensaje de commit
@@ -94,15 +94,15 @@ def manejar_limpieza_y_push(current_download_count: int):
     # 3. Crear el Commit
     if ejecutar_comando_git(["git", "commit", "-m", commit_msg], root_dir):
         # 4. Hacer Push a GitHub (Solo si el commit fue exitoso)
-        print("\n📤 Intentando hacer push a GitHub...")
+        print("\nIntentando hacer push a GitHub...")
         ejecutar_comando_git(["git", "push", "origin", "main"], root_dir)
     else:
-        print("⚠️ No hay cambios detectados para hacer commit/push. Progreso guardado localmente.")
+        print("No hay cambios detectados para hacer commit/push. Progreso guardado localmente.")
 
 def check_api_key():
     """Verifica si la clave API está configurada y es válida antes de iniciar el loop."""
     if not API_KEY:
-        print("❌ ERROR CRÍTICO: La clave MALWAREBAZAAR_API_KEY no está configurada o se cargó vacía.")
+        print("ERROR CRÍTICO: La clave MALWAREBAZAAR_API_KEY no está configurada o se cargó vacía.")
         return False
         
     TEST_HASH = "094fd325049b8a9cf6d3e5ef2a6d4cc6a567d7d49c35f8bb8dd9e3c6acf3d78d"
@@ -110,13 +110,13 @@ def check_api_key():
     payload = {'query': 'get_info', 'hash': TEST_HASH}
     headers = {"Auth-Key": API_KEY}
     
-    print("🔬 Verificando la validez de la clave API con una consulta de prueba...")
+    print("Verificando la validez de la clave API con una consulta de prueba...")
 
     try:
         response = requests.post(API_URL, data=payload, headers=headers, timeout=10)
         
         if response.status_code == 403:
-            print("❌ ERROR: La clave API fue rechazada (HTTP 403 Forbidden). Verifique su clave o permisos de descarga.")
+            print("ERROR: La clave API fue rechazada (HTTP 403 Forbidden). Verifique su clave o permisos de descarga.")
             return False
 
         # Si el JSON se decodifica correctamente, la clave es válida
@@ -125,22 +125,22 @@ def check_api_key():
             status = data.get('query_status')
             
             if status == 'api_key_invalid':
-                print("❌ ERROR: La API reportó que la clave es inválida. Deteniendo la ejecución.")
+                print("ERROR: La API reportó que la clave es inválida. Deteniendo la ejecución.")
                 return False
                 
             if status == 'ok' or status == 'hash_not_found':
-                print("✅ Clave API verificada y válida. Iniciando descargas.")
+                print("Clave API verificada y válida. Iniciando descargas.")
                 return True
             
-            print(f"⚠️ Advertencia: Respuesta inesperada de la API: {status}. Procediendo con la descarga.")
+            print(f"Advertencia: Respuesta inesperada de la API: {status}. Procediendo con la descarga.")
             return True
         
         except json.JSONDecodeError:
-             print("❌ ERROR: La API respondió con un formato inesperado (no JSON). Esto es un signo de clave inválida o permisos insuficientes.")
+             print("ERROR: La API respondió con un formato inesperado (no JSON). Esto es un signo de clave inválida o permisos insuficientes.")
              return False
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ ERROR CRÍTICO: Fallo de conexión o red durante la verificación: {e}. No se puede continuar.")
+        print(f"ERROR CRÍTICO: Fallo de conexión o red durante la verificación: {e}. No se puede continuar.")
         return False
 
 # ------------------------------------------------------------------------------
@@ -162,10 +162,10 @@ def load_daily_status() -> dict:
             daily_count = status.get('daily_count', 0)
             
             if last_run_date != today:
-                print(f"📅 ¡Nuevo día detectado! Contador diario reiniciado.")
+                print(f"¡Nuevo día detectado! Contador diario reiniciado.")
                 return default_status
             else:
-                print(f"⏳ Continuación: {daily_count} solicitudes de descarga hoy. Restantes: {DAILY_DOWNLOAD_LIMIT - daily_count}")
+                print(f"Continuación: {daily_count} solicitudes de descarga hoy. Restantes: {DAILY_DOWNLOAD_LIMIT - daily_count}")
                 return status
                 
     except Exception:
@@ -231,20 +231,20 @@ def unzip_sample(zip_data: bytes, sha256_hash: str, output_path: str, thread_lim
             if content_size > MAX_UNCOMPRESSED_SIZE_BYTES:
                 # ELIMINACIÓN EXPLÍCITA DEL DISCO
                 os.remove(final_file_path)
-                print(f"💣 [Hilo {threading.get_ident()}] ¡Fichero ELIMINADO! {sha256_hash}. Tamaño ({content_size / 1024**2:.2f} MB) excede el límite de 1.0 MB.")
+                print(f"[Hilo {threading.get_ident()}] ¡Fichero ELIMINADO! {sha256_hash}. Tamaño ({content_size / 1024**2:.2f} MB) excede el límite de 1.0 MB.")
                 return 
 
             # Si pasa el filtro (<= 1MB), permanece en disco
-            print(f"✅ [Hilo {threading.get_ident()}] Muestra descomprimida y guardada: {final_file_name} ({content_size / 1024**2:.2f} MB)")
+            print(f"[Hilo {threading.get_ident()}] Muestra descomprimida y guardada: {final_file_name} ({content_size / 1024**2:.2f} MB)")
 
     except pyzipper.BadZipFile:
-        print(f"❌ [Hilo {threading.get_ident()}] Error de ZIP: El archivo {sha256_hash} está corrupto.")
+        print(f"[Hilo {threading.get_ident()}] Error de ZIP: El archivo {sha256_hash} está corrupto.")
         # Intentar limpiar si el archivo ZIP corrupto llegó a guardarse 
         if os.path.exists(final_file_path):
             os.remove(final_file_path)
             
     except Exception as e:
-        print(f"❌ [Hilo {threading.get_ident()}] Error desconocido al descomprimir {sha256_hash}: {e}")
+        print(f"[Hilo {threading.get_ident()}] Error desconocido al descomprimir {sha256_hash}: {e}")
         if os.path.exists(final_file_path):
             os.remove(final_file_path)
     finally:
@@ -264,7 +264,7 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
         response = requests.post(API_URL, data=payload, headers=headers, timeout=120)
         
         if not response.content:
-            print(f"❌ Error API: Respuesta vacía o nula para {sha256_hash}.")
+            print(f"Error API: Respuesta vacía o nula para {sha256_hash}.")
             return False 
 
         response.raise_for_status() 
@@ -275,18 +275,18 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
             status = error_data.get('query_status', 'unknown_error')
             
             if status in ['file_not_found', 'api_key_invalid']:
-                print(f"❌ Error API: {status} para {sha256_hash}")
+                print(f"Error API: {status} para {sha256_hash}")
                 if status == 'api_key_invalid':
                     global_state['interrupted'] = True
                 return False 
             
-            print(f"❌ Error API (JSON): {status} para {sha256_hash}")
+            print(f"Error API (JSON): {status} para {sha256_hash}")
             return False 
 
         except json.JSONDecodeError:
             # ÉXITO DE DESCARGA: Tenemos el binario ZIP
             zip_data = response.content
-            print(f"🚀 Descargado ZIP de {sha256_hash}. Tamaño comprimido: {len(zip_data)} bytes. Lanzando hilo...")
+            print(f"Descargado ZIP de {sha256_hash}. Tamaño comprimido: {len(zip_data)} bytes. Lanzando hilo...")
             
             thread_limiter.acquire()
             thread = threading.Thread(target=unzip_sample, 
@@ -296,10 +296,10 @@ def download_sample_and_unzip(sha256_hash: str, thread_limiter: threading.Semaph
             return True # Solicitud API exitosa y hilo lanzado
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error de solicitud para {sha256_hash}: Fallo de conexión o HTTP: {e}")
+        print(f"Error de solicitud para {sha256_hash}: Fallo de conexión o HTTP: {e}")
         return False
     except Exception as e:
-        print(f"❌ Error inesperado durante la descarga/lanzamiento de hilo para {sha256_hash}: {e}")
+        print(f"Error inesperado durante la descarga/lanzamiento de hilo para {sha256_hash}: {e}")
         return False
         
 # ------------------------------------------------------------------------------
@@ -318,12 +318,12 @@ def main_download_loop():
     current_count = daily_status['daily_count']
     
     if current_count >= DAILY_DOWNLOAD_LIMIT:
-        print(f"\n🛑 Límite de {DAILY_DOWNLOAD_LIMIT} solicitudes alcanzado para hoy.")
+        print(f"\nLímite de {DAILY_DOWNLOAD_LIMIT} solicitudes alcanzado para hoy.")
         return current_count
 
     hashes_to_process = []
     if not os.path.exists(HASHES_INPUT_FILE):
-        print(f"❌ Error: Archivo de entrada no encontrado: {HASHES_INPUT_FILE}")
+        print(f"Error: Archivo de entrada no encontrado: {HASHES_INPUT_FILE}")
         return current_count
 
     try:
@@ -364,14 +364,14 @@ def main_download_loop():
             time.sleep(5) # Delay mayor después de un fallo de conexión/API/Hash no encontrado
 
             
-    print("⏳ Esperando a que terminen los hilos de descompresión activos...")
+    print("Esperando a que terminen los hilos de descompresión activos...")
     # Recolectar todos los permisos del semáforo para asegurar que todos los hilos han terminado
     for i in range(MAX_THREADS):
         thread_limiter.acquire()
     for i in range(MAX_THREADS):
         thread_limiter.release()
             
-    print("✅ Proceso de descarga finalizado.")
+    print("Proceso de descarga finalizado.")
     
     return current_count
 
@@ -382,7 +382,7 @@ def main_download_loop():
 def handler(signum, frame):
     """Maneja la señal de interrupción (Ctrl+C)."""
     global_state['interrupted'] = True
-    print("\n\n🚨 ¡Interrupción detectada (Ctrl+C)! Se detendrá el bucle principal de descarga. Los hilos activos finalizarán.")
+    print("\n\n ¡Interrupción detectada (Ctrl+C)! Se detendrá el bucle principal de descarga. Los hilos activos finalizarán.")
 
 signal.signal(signal.SIGINT, handler)
 
@@ -394,7 +394,7 @@ if __name__ == "__main__":
         final_count = main_download_loop()
 
     except Exception as e:
-        print(f"\n❌ ERROR CRÍTICO en la fase de descarga: {e}")
+        print(f"\nERROR CRÍTICO en la fase de descarga: {e}")
         
     finally:
         # Usar global_state['count'] si se interrumpió o el final_count
@@ -403,6 +403,6 @@ if __name__ == "__main__":
         if count_for_commit > 0 or os.path.exists(DOWNLOAD_LOG_FILE):
             manejar_limpieza_y_push(count_for_commit)
         else:
-            print("\n⚠️ No se ha realizado ningún progreso guardable. Finalizando.")
+            print("\n No se ha realizado ningún progreso guardable. Finalizando.")
         
         sys.exit(0)
