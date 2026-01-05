@@ -1,9 +1,1 @@
 source tfg/bin/activate
-
-añadir etiqueta de si es malware o no con una columna al final malware que sea 1 si lo es y 0 si no
-Recolectar los archivos benignos:
-    - C:\Windows\System32\
-    - C:\Windows\SysWOW64\
-    - C:\Program Files\
-    - C:\Archivos de programa (x86)\
-    - Cualquier .exe del sistema Windows
