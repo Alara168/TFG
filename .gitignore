@@ -209,3 +209,5 @@ __marimo__/
 Scrap/ficheros/muestras_malware/
 Scrap/ficheros/muestras_benignas/
 Scrap/dataset_mil_features_pure.csv
+Scrap/dataset_tfg_balanceado_bags.csv
+Scrap/ficheros/hashes_exe_familias.csv
