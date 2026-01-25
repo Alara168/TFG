@@ -2,13 +2,13 @@ import pandas as pd
 import re
 import numpy as np
 
-# Cargar el archivo
+# 1. CARGAR ARCHIVOS DE ETIQUETAS
 try:
-    df = pd.read_csv('hashes_exe.csv', sep=';')
+    df_tags = pd.read_csv('hashes_exe.csv', sep=';')
 except FileNotFoundError:
-    df = pd.read_csv('hashes.csv', sep=';')
+    df_tags = pd.read_csv('hashes.csv', sep=';')
 
-# Función de limpieza
+# 2. FUNCIÓN DE LIMPIEZA DE TAGS
 def limpiar_tags(texto):
     t = str(texto)
     t = re.sub(r'[0-9]', '', t)
@@ -22,11 +22,9 @@ def limpiar_tags(texto):
     t = re.sub(r'\s+', ' ', t)
     return t.strip()
 
-df['tags_limpio'] = df['tags'].apply(limpiar_tags)
-lista_unicos = sorted(df[df['tags_limpio'] != ""]['tags_limpio'].unique())
+df_tags['tags_limpio'] = df_tags['tags'].apply(limpiar_tags)
 
-# --- LÓGICA DE CATEGORÍAS ---
-
+# 3. DICCIONARIO DE CATEGORÍAS
 categorias = {
     # Ransomware, Wipers Virus y Worms
     "RANSOMWARE, WIPERS Y DESTRUCTIVOS": [
@@ -110,81 +108,53 @@ def clasificar_multiopcion(tags_limpios):
     for cat, keywords in categorias.items():
         if any(key.lower() in linea_lower for key in keywords):
             categorias_encontradas.append(cat)
-    if not categorias_encontradas:
-        return "OTROS_NO_ENCAJAN"
-    return ", ".join(categorias_encontradas)
+    return ", ".join(categorias_encontradas) if categorias_encontradas else "OTROS_NO_ENCAJAN"
 
-df['categorias_mapeadas'] = df['tags_limpio'].apply(clasificar_multiopcion)
+df_tags['categorias_mapeadas'] = df_tags['tags_limpio'].apply(clasificar_multiopcion)
 
-# --- MAPEO NUMÉRICO ---
-# Ransomware (ID 5) se agrupa con OTROS para evitar clases vacías
+# 4. MAPEO A IDs NUMÉRICOS (Unificado)
+# 0: Benigno (asumiendo que viene en el dataset original)
+# 1: Financiero
+# 2: Intrusion
+# 3: Herramientas y Sistema (clases 3 y 4 unificadas)
+# 4: Ransomware y Otros
 mapping_ids = {
     "CRIMEN_FINANCIERO_Y_ROBO": 1,
     "INTRUSION_Y_PERSISTENCIA": 2,
-    "HERRAMIENTAS_Y_VECTORES": 3,
-    "TECNICOS_Y_SISTEMA": 4,
-    "RANSOMWARE, WIPERS Y DESTRUCTIVOS": 5,
-    "OTROS_NO_ENCAJAN": 5
+    "HERRAMIENTAS_Y_SISTEMA": 3,
+    "RANSOMWARE, WIPERS Y DESTRUCTIVOS": 4,
+    "OTROS_NO_ENCAJAN": 4
 }
 
-nombres_clases = {1: "CRIMEN_FINANCIERO", 2: "INTRUSION", 3: "HERRAMIENTAS", 4: "TECNICO", 5: "OTROS/RANSOM", 0: "BENIGNO"}
-
 def asignar_id(cat_string):
+    # Cogemos la primera categoría detectada
     primera_cat = cat_string.split(',')[0].strip()
-    return mapping_ids.get(primera_cat, 5)
+    # Si es Herramientas o Tecnicos, ambos devuelven 3
+    if primera_cat in ["HERRAMIENTAS_Y_VECTORES", "TECNICOS_Y_SISTEMA", "HERRAMIENTAS_Y_SISTEMA"]:
+        return 3
+    return mapping_ids.get(primera_cat, 4)
 
-dict_lookup = pd.Series(df['categorias_mapeadas'].apply(asignar_id).values, index=df['hash']).to_dict()
+# Diccionario de búsqueda rápido
+dict_lookup = pd.Series(df_tags['categorias_mapeadas'].apply(asignar_id).values, index=df_tags['hash']).to_dict()
 
-# --- PROCESAMIENTO DEL DATASET DE FEATURES ---
+# 5. PROCESAMIENTO DEL DATASET
 dataset_path = '../dataset_mil_features_pure.csv'
-dataset_balanceado_path = '../dataset_tfg_balanceado_bags.csv'
-LIMITE_FUNCIONES_POR_CLASE = 500000 
+dataset_output_path = '../dataset_tfg_etiquetado_completo.csv'
 
 try:
-    print(f"Leyendo dataset: {dataset_path}...")
+    print(f"Leyendo dataset original: {dataset_path}...")
     ds = pd.read_csv(dataset_path)
 
-    print("Asignando nuevas etiquetas...")
+    print("Asignando nuevas etiquetas unificadas...")
     ds['malware'] = ds['binary_hash'].map(dict_lookup).fillna(ds['malware']).astype(int)
 
-    # --- BALANCEO POR BAGS (HASH COMPLETO) ---
-    print(f"Iniciando balanceo por Bags (Límite: {LIMITE_FUNCIONES_POR_CLASE} funciones/clase)...")
-    hashes_finales = []
-
-    for clase_id in ds['malware'].unique():
-        df_clase = ds[ds['malware'] == clase_id]
-        
-        # Agrupar por hash y contar funciones
-        counts_per_hash = df_clase.groupby('binary_hash').size().reset_index(name='count')
-        # Mezclar hashes
-        counts_per_hash = counts_per_hash.sample(frac=1, random_state=42)
-        # Suma acumulada
-        counts_per_hash['cum_sum'] = counts_per_hash['count'].cumsum()
-        
-        # Seleccionar hashes hasta el límite
-        seleccionados = counts_per_hash[counts_per_hash['cum_sum'] <= LIMITE_FUNCIONES_POR_CLASE]['binary_hash'].tolist()
-        
-        if not seleccionados and not counts_per_hash.empty:
-            seleccionados = [counts_per_hash.iloc[0]['binary_hash']]
-            
-        hashes_finales.extend(seleccionados)
-        print(f"  > Clase {clase_id} ({nombres_clases.get(clase_id)}): {len(seleccionados)} hashes seleccionados.")
-
-    # Filtrar dataset final
-    ds_final = ds[ds['binary_hash'].isin(hashes_finales)]
+    # Guardar
+    ds.to_csv(dataset_output_path, index=False)
     
-    # Guardar en un archivo NUEVO para seguridad, luego puedes borrar el viejo
-    ds_final.to_csv(dataset_balanceado_path, index=False)
-
-    print("\n" + "="*60)
-    print("RESUMEN FINAL DEL DATASET BALANCEADO POR BAGS:")
-    print("="*60)
-    resumen = ds_final['malware'].value_counts().sort_index()
-    for id_clase, total_f in resumen.items():
-        n_h = ds_final[ds_final['malware'] == id_clase]['binary_hash'].nunique()
-        print(f"ID {id_clase} | Funciones: {total_f:<10} | Hashes: {n_h:<6} | {nombres_clases.get(id_clase)}")
-    print("="*60)
-    print(f"Archivo guardado en: {dataset_balanceado_path}")
+    print(f"¡Hecho! Dataset unificado guardado en: {dataset_output_path}")
+    print("\nNueva distribución de clases:")
+    resumen = ds['malware'].value_counts().sort_index()
+    print(resumen)
 
 except Exception as e:
     print(f"Error: {e}")
