@@ -99,7 +99,7 @@ class GatedAttentionMIL(nn.Module):
         self.feature_extractor = nn.Sequential(
             nn.Linear(input_dim, self.L),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.35),
             nn.Linear(self.L, self.L),
             nn.ReLU()
         )
