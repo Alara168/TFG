@@ -1,11 +1,11 @@
                       precision    recall  f1-score   support
 
-             Benigno       0.94      0.95      0.95       109
-          Financiero       0.70      0.77      0.73       219
-           Intrusion       0.53      0.70      0.60        86
-Herramientas/Sistema       0.58      0.60      0.59        58
-        Otros/Ransom       0.78      0.57      0.66       185
+             Benigno       1.00      0.95      0.98       218
+          Financiero       0.67      0.72      0.69       218
+           Intrusion       0.81      0.91      0.85       219
+Herramientas/Sistema       0.91      0.83      0.87       218
+        Otros/Ransom       0.81      0.75      0.78       219
 
-            accuracy                           0.72       657
-           macro avg       0.71      0.72      0.71       657
-        weighted avg       0.73      0.72      0.72       657
+            accuracy                           0.83      1092
+           macro avg       0.84      0.83      0.83      1092
+        weighted avg       0.84      0.83      0.83      1092

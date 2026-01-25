@@ -19,7 +19,7 @@ import os
 NOMBRES_CLASES = ['Benigno', 'Financiero', 'Intrusion', 'Herramientas/Sistema', 'Otros/Ransom']
 
 # ==========================================
-# 1. DATASET
+# 1. DATASET CON OVERSAMPLING DE BAGS
 # ==========================================
 class MalwareMILDataset(Dataset):
     def __init__(self, csv_path, scaler=None):
@@ -31,7 +31,7 @@ class MalwareMILDataset(Dataset):
         LIMITE_FUNCIONES_POR_CLASE = 500000
         hashes_finales = []
         
-        print(f"[2/4] Aplicando downsampling (Límite: {LIMITE_FUNCIONES_POR_CLASE} funciones/clase)...")
+        print(f"[2/4] Aplicando downsampling (Límite: {LIMITE_FUNCIONES_POR_CLASE})...")
         for clase_id in sorted(df['malware'].unique()):
             df_clase = df[df['malware'] == clase_id]
             counts_per_hash = df_clase.groupby('binary_hash').size().reset_index(name='count')
@@ -45,15 +45,42 @@ class MalwareMILDataset(Dataset):
         
         df = df[df['binary_hash'].isin(hashes_finales)].copy()
 
-        # --- RESUMEN DEL BALANCEO ---
+        # --- LÓGICA DE OVERSAMPLING (EQUILIBRADO DE BOLSAS) ---
+        groups = df.groupby('binary_hash')
+        self.bag_indices = groups.indices
+        temp_bag_names = list(self.bag_indices.keys())
+        temp_labels = groups['malware'].first().values
+
+        # Calculamos la clase mayoritaria para igualar al resto
+        clases, conteos = np.unique(temp_labels, return_counts=True)
+        max_muestras = max(conteos)
+        
+        self.bag_names = []
+        self.labels = []
+        
+        print(f"[*] Aplicando Oversampling para equilibrar a {max_muestras} bolsas por clase...")
+        for clase_id in clases:
+            idx_clase = np.where(temp_labels == clase_id)[0]
+            muestras_actuales = [temp_bag_names[i] for i in idx_clase]
+            
+            # Replicamos las muestras de la clase hasta alcanzar el máximo
+            replicas = (max_muestras // len(muestras_actuales))
+            sobrante = max_muestras % len(muestras_actuales)
+            
+            muestras_equilibradas = muestras_actuales * replicas + muestras_actuales[:sobrante]
+            self.bag_names.extend(muestras_equilibradas)
+            self.labels.extend([clase_id] * len(muestras_equilibradas))
+        
+        self.labels = np.array(self.labels)
+
+        # --- RESUMEN DEL BALANCEO FINAL ---
         print("-" * 65)
-        print(f"{'ID':<4} | {'CLASE':<20} | {'FUNCIONES':<12} | {'HASHES':<8}")
+        print(f"{'ID':<4} | {'CLASE':<20} | {'FUNCIONES':<12} | {'HASHES (FINAL)':<8}")
         print("-" * 65)
-        resumen = df.groupby('malware')
-        for cid, group in resumen:
-            nombre = NOMBRES_CLASES[int(cid)] if int(cid) < len(NOMBRES_CLASES) else "Desconocido"
-            n_func = len(group)
-            n_hash = group['binary_hash'].nunique()
+        for cid in clases:
+            nombre = NOMBRES_CLASES[int(cid)]
+            n_func = len(df[df['malware'] == cid])
+            n_hash = (self.labels == cid).sum()
             print(f"{int(cid):<4} | {nombre:<20} | {n_func:<12} | {n_hash:<8}")
         print("-" * 65 + "\n")
 
@@ -67,11 +94,7 @@ class MalwareMILDataset(Dataset):
             self.scaler = scaler
             df[self.feature_cols] = self.scaler.transform(df[self.feature_cols].astype(np.float32))
         
-        print(f"[4/4] Agrupando funciones en 'Bags' (binarios)...")
-        groups = df.groupby('binary_hash')
-        self.bag_indices = groups.indices
-        self.bag_names = list(self.bag_indices.keys())
-        self.labels = groups['malware'].first().values
+        print(f"[4/4] Agrupando funciones en 'Bags'...")
         self.all_data = df 
 
     def __len__(self): return len(self.bag_names)
@@ -131,7 +154,7 @@ def plot_architecture(input_dim):
     plt.plot(x, y, 'ko-', markersize=40, markerfacecolor='skyblue')
     for i, txt in enumerate(layers):
         plt.annotate(txt, (x[i], y[i]), textcoords="offset points", xytext=(0,10), ha='center', fontweight='bold')
-    plt.title("Arquitectura Gated Attention MIL")
+    plt.title("Arquitectura Gated Attention MIL (Oversampled)")
     plt.axis('off')
     plt.savefig('arquitectura_neuronal.png')
     plt.close()
@@ -153,7 +176,7 @@ def create_activation_video(model, feats, addrs, filename='activacion_neuronal.g
         ax1.set_ylabel("Importancia")
         
         ax2.imshow(activations[frame:frame+1, :64], aspect='auto', cmap='viridis')
-        ax2.set_title(f"Activación Capa Oculta - Función: {hex(int(addrs[frame])) if isinstance(addrs[frame], (int, float, np.integer)) else addrs[frame]}")
+        ax2.set_title(f"Activación - Función: {hex(int(addrs[frame])) if isinstance(addrs[frame], (int, float, np.integer)) else addrs[frame]}")
         ax2.axis('off')
 
     ani = animation.FuncAnimation(fig, update, frames=min(20, len(importance)), interval=500)
@@ -174,11 +197,6 @@ def entrenar(csv_path, k_folds=5):
 
     plot_architecture(len(dataset.feature_cols))
 
-    # --- CALCULO DE PESOS PARA BALANCEO ---
-    clases, conteos = np.unique(dataset.labels, return_counts=True)
-    pesos = 1. / conteos
-    pesos_clase = torch.tensor(pesos / pesos.sum() * len(NOMBRES_CLASES), dtype=torch.float32).to(device)
-
     skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
     best_model_path = 'best_model_gated_mil.pth'
     global_best_val_loss = float('inf')
@@ -190,10 +208,8 @@ def entrenar(csv_path, k_folds=5):
         model = GatedAttentionMIL(len(dataset.feature_cols), len(NOMBRES_CLASES)).to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
         
-        # Mejora: Loss ponderado para equilibrar clases pequeñas
-        criterion = nn.BCEWithLogitsLoss(pos_weight=pesos_clase)
-        
-        # Mejora: Programador para bajar el LR cuando el error se estanca
+        # Al usar oversampling, ya no es estrictamente necesario el pos_weight, usamos Loss estándar
+        criterion = nn.BCEWithLogitsLoss()
         scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
         
         fold_best_loss = float('inf')
@@ -221,9 +237,7 @@ def entrenar(csv_path, k_folds=5):
                     val_loss += criterion(log, l.unsqueeze(0).to(device)).item()
             val_loss /= len(val_idx)
             
-            # Actualizamos scheduler basado en val_loss
             scheduler.step(val_loss)
-            
             pbar_epochs.set_postfix(val_loss=f"{val_loss:.4f}", best=f"{fold_best_loss:.4f}")
 
             if val_loss < fold_best_loss:
@@ -250,7 +264,6 @@ def entrenar(csv_path, k_folds=5):
             f, l, _ = dataset[idx]
             log, _, _ = model(f.to(device))
             y_true.append(l.numpy().argmax())
-            # Mejora: Detach para evitar error de gradiente
             y_pred.append(torch.sigmoid(log).detach().cpu().numpy()[0].argmax())
 
     report = classification_report(y_true, y_pred, target_names=NOMBRES_CLASES)
