@@ -1,1 +1,5 @@
 source tfg/bin/activate
+
+Windows: tfg\Scripts\activate
+
+python manage.py runserver

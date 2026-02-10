@@ -1,9 +1,3 @@
-Va a usar Django con postgreSQL
-
-Crear el docker con el que usar postgreSQL y tiene que tener volúmenes para mantener la información.
-
-Mirar qué tablas van a ser necesarios y añadirlas a django
-
 Tener en cuenta que en un futuro se va a necesitar usar JWT
 
 Mirar como funciona DRF (Django REST Framework) y como se integra con todo
@@ -18,3 +12,5 @@ Crear endpoints de las cosas que son necesarias:
     - Historial análisis
     - Analisis id: devuelve el resultado de un fichero específico. Se llegará desde el historial
     - Get estadísitcas admin
+
+Revisar los TODO
