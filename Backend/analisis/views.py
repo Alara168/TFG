@@ -9,6 +9,7 @@ from rest_framework import generics
 #TODO: no usar Allow Any
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth.models import User
+from .serializers import RegistroSerializer
 
 
 class AnalizarBinarioView(APIView):
@@ -139,3 +140,8 @@ class DetalleAnalisisView(generics.RetrieveAPIView):
             
         # Filtramos para que solo busque entre los archivos del usuario
         return Analisis.objects.filter(usuario=user)
+
+class RegistroUsuarioView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = [AllowAny]
+    serializer_class = RegistroSerializer
