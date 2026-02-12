@@ -4,35 +4,45 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 # ==========================================
 # 1. NÚCLEO DEL ANÁLISIS (EL "BAG" O BOLSA)
-# ==========================================
+# ==========================================Para implementar esta relación muchos a muchos de forma profesional, vamos a crear el modelo Subida. Este actuará como una "tabla intermedia" que conecta a los usuarios con los análisis globales.
 class Analisis(models.Model):
     """
-    Representa el análisis global de un binario. 
-    Cumple con el objetivo de Trazabilidad y Persistencia.
+    Representa el análisis global de un binario (único por hash).
     """
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='analisis_realizados')
+    # ELIMINAMOS la línea de usuario de aquí
     nombre_fichero = models.CharField(max_length=255)
     hash_sha256 = models.CharField(max_length=64, unique=True, db_index=True)
     tamano_bytes = models.BigIntegerField(null=True, blank=True)
     
-    # Resultados del modelo
-    resultado_clase = models.CharField(max_length=50) # Benigno, Financiero, etc.
+    resultado_clase = models.CharField(max_length=50)
     confianza_global = models.FloatField(
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)]
     )
-    
-    # Guardamos el array completo de probabilidades de las 5 clases en JSONB
-    # Ejemplo: {"Benigno": 0.05, "Financiero": 0.80, ...}
-    probabilidades_json = models.JSONField(help_text="Distribución de probabilidad de todas las clases")
-    
+    probabilidades_json = models.JSONField(help_text="Distribución de probabilidad")
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name_plural = "Análisis"
         ordering = ['-fecha_creacion']
 
-    def __str__(self):
-        return f"{self.nombre_fichero} ({self.resultado_clase})"
+# NUEVO MODELO PARA GESTIONAR LAS SUBIDAS
+class Subida(models.Model):
+    """
+    Relaciona a un usuario con un análisis específico. 
+    Permite que varios usuarios 'posean' el mismo resultado de análisis.
+    """
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mis_subidas')
+    analisis = models.ForeignKey(Analisis, on_delete=models.CASCADE, related_name='subidas_relacionadas')
+    
+    # Guardamos el nombre con el que el usuario subió el archivo (puede variar)
+    nombre_fichero_personalizado = models.CharField(max_length=255)
+    fecha_subida = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Subidas"
+        # Un usuario no puede 'subir' el mismo hash dos veces al historial
+        unique_together = ('usuario', 'analisis') 
+        ordering = ['-fecha_subida']
 
 # ==========================================
 # 2. DETALLE DE INSTANCIAS (LAS FUNCIONES)

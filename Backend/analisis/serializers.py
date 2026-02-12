@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Analisis, DetalleFuncion, LogActividad
+from .models import Analisis, DetalleFuncion, LogActividad, Subida
 from django.contrib.auth.models import User
 
 class DetalleFuncionSerializer(serializers.ModelSerializer):
@@ -25,8 +25,7 @@ class AnalisisSerializer(serializers.ModelSerializer):
     class Meta:
         model = Analisis
         fields = [
-            'id', 
-            'usuario', 
+            'id',  
             'nombre_fichero', 
             'hash_sha256', 
             'tamano_bytes', 
@@ -63,3 +62,33 @@ class RegistroSerializer(serializers.ModelSerializer):
             last_name=validated_data.get('last_name', '')
         )
         return user
+
+class HistorialSubidasSerializer(serializers.ModelSerializer):
+    # Incluimos los datos del análisis anidados
+    detalles_analisis = AnalisisSerializer(source='analisis', read_only=True)
+    
+    class Meta:
+        model = Subida
+        fields = ['id', 'nombre_fichero_personalizado', 'fecha_subida', 'detalles_analisis']
+
+class HistorialSimplificadoSerializer(serializers.ModelSerializer):
+    # Traemos campos específicos del objeto Analisis relacionado
+    resultado_clase = serializers.CharField(source='analisis.resultado_clase', read_only=True)
+    confianza_global = serializers.FloatField(source='analisis.confianza_global', read_only=True)
+    hash_sha256 = serializers.CharField(source='analisis.hash_sha256', read_only=True)
+    tamano_bytes = serializers.IntegerField(source='analisis.tamano_bytes', read_only=True)
+    
+    # Formateamos la fecha de subida del usuario
+    fecha_subida = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
+
+    class Meta:
+        model = Subida
+        fields = [
+            'id', 
+            'nombre_fichero_personalizado', 
+            'hash_sha256', 
+            'resultado_clase', 
+            'confianza_global', 
+            'tamano_bytes',
+            'fecha_subida'
+        ]

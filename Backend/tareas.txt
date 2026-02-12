@@ -6,9 +6,6 @@ Añadir la url con los datos necesarios que haya que pasar.
 
 Crear endpoints de las cosas que son necesarias:
     - Ver estadísticas de usuario
-    - Login
-    - Registro
-    - Analisis id: devuelve el resultado de un fichero específico. Se llegará desde el historial
     - Get estadísitcas admin
 
 Revisar los TODO

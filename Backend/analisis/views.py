@@ -2,146 +2,136 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .utils import calcular_sha256, extract_features, get_resources
-from .models import Analisis, DetalleFuncion, LogActividad
-from .serializers import AnalisisSerializer
+from .models import Analisis, DetalleFuncion, LogActividad, Subida
+from .serializers import AnalisisSerializer, HistorialSimplificadoSerializer
 import torch, pandas as pd
 from rest_framework import generics
 #TODO: no usar Allow Any
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth.models import User
 from .serializers import RegistroSerializer
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.authtoken.models import Token
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
 class AnalizarBinarioView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         file_obj = request.FILES.get('archivo')
         if not file_obj: 
             return Response({"error": "No se proporcionó ningún archivo."}, status=400)
 
-        # TODO: hacer que sea siempre request.user
-        # 1. Gestión de Usuario (Fingir admin si es anónimo para evitar errores)
-        user_final = request.user if request.user.is_authenticated else User.objects.filter(is_superuser=True).first()
-
-        # 2. Verificación de caché por Hash
+        user_actual = request.user 
         h = calcular_sha256(file_obj)
-        cached = Analisis.objects.filter(hash_sha256=h).first()
-        if cached: 
-            return Response(AnalisisSerializer(cached).data)
 
-        file_size = file_obj.size
-        model, pipeline = get_resources()
+        # 1. BUSQUEDA GLOBAL: ¿Alguien ha analizado este archivo ya?
+        analisis_obj = Analisis.objects.filter(hash_sha256=h).first()
 
-        # 3. Extracción de características (SMDA)
-        print(f"DEBUG: Procesando archivo: {file_obj.name} ({file_size} bytes)")
-        raw_feats, addrs = extract_features(file_obj)
-        
-        if raw_feats is None:
-            return Response({"error": "Fallo crítico en el desensamblado estático."}, status=500)
-
-        if len(raw_feats) == 0:
-            return Response({"error": "No se encontraron funciones analizables en el binario."}, status=422)
-
-        # 4. Preparación de datos para el modelo
-        df = pd.DataFrame(raw_feats)
-        for col in pipeline['feature_cols']:
-            if col not in df.columns:
-                df[col] = 0
-        
-        df = df[pipeline['feature_cols']]
-        
-        # Escalado y conversión a tensor
-        scaled_feats = pipeline['scaler'].transform(df.astype(float))
-        bag_tensor = torch.tensor(scaled_feats, dtype=torch.float32)
-
-        # 5. Inferencia con lógica Multifamilia
-        with torch.no_grad():
-            # El modelo ya devuelve: logits_global, atención, y probabilidades por instancia
-            logits_global, A, probs_instancias_tensor = model(bag_tensor)
+        if not analisis_obj:
+            # --- PROCESAMIENTO DE IA (Solo si el hash es nuevo) ---
+            model, pipeline = get_resources()
+            raw_feats, addrs = extract_features(file_obj)
             
-            # Probabilidades globales (sigmoid para multifamilia)
-            probs_global = torch.sigmoid(logits_global).cpu().numpy()[0]
-            
-            # Probabilidades por función (ya vienen calculadas del forward del modelo)
-            # Solo las pasamos a numpy
-            probs_instancias = probs_instancias_tensor.cpu().numpy()
-            
-            attn = A.cpu().numpy()[0]
+            if raw_feats is None or len(raw_feats) == 0:
+                return Response({"error": "Error al procesar el binario o extraer funciones."}, status=422)
 
-        # 6. Guardar el Análisis Principal
-        # En multifamilia, el resultado_clase suele ser el de mayor probabilidad
-        idx_max = probs_global.argmax()
-        clases_nombres = pipeline['nombres']
-        
-        res = Analisis.objects.create(
-            usuario=user_final, 
-            nombre_fichero=file_obj.name, 
-            hash_sha256=h, 
-            tamano_bytes=file_size,
-            resultado_clase=clases_nombres[idx_max], 
-            confianza_global=float(probs_global[idx_max]),
-            probabilidades_json={n: float(p) for n, p in zip(clases_nombres, probs_global)}
-        )
-
-        # 7. Guardar Detalles de Funciones con probabilidades específicas (XAI Local)
-        top_i = attn.argsort()[-5:][::-1]
-        for i in top_i:
-            # Creamos el set de probabilidades para esta función concreta
-            set_probabilidades_func = {
-                clases_nombres[j]: float(probs_instancias[i][j]) 
-                for j in range(len(clases_nombres))
-            }
+            # Inferencia con Pandas y Torch
+            df = pd.DataFrame(raw_feats)
+            for col in pipeline['feature_cols']:
+                if col not in df.columns: df[col] = 0
+            df = df[pipeline['feature_cols']]
             
-            DetalleFuncion.objects.create(
-                analisis=res, 
-                direccion_memoria=addrs[i], 
-                atencion_score=float(attn[i]),
-                # Asegúrate de haber añadido este campo JSONField en tu modelo DetalleFuncion
-                prediccion_especifica=set_probabilidades_func 
+            scaled_feats = pipeline['scaler'].transform(df.astype(float))
+            bag_tensor = torch.tensor(scaled_feats, dtype=torch.float32)
+
+            with torch.no_grad():
+                # El forward devuelve: logits_global, pesos_atencion, probs_instancias
+                logits_global, A, probs_instancias_tensor = model(bag_tensor)
+                
+                probs_global = torch.sigmoid(logits_global).cpu().numpy()[0]
+                probs_instancias = probs_instancias_tensor.cpu().numpy()
+                attn = A.cpu().numpy()[0]
+
+            # Guardar el Análisis Global
+            idx_max = probs_global.argmax()
+            clases_nombres = pipeline['nombres']
+            
+            analisis_obj = Analisis.objects.create(
+                nombre_fichero=file_obj.name, 
+                hash_sha256=h, 
+                tamano_bytes=file_obj.size,
+                resultado_clase=clases_nombres[idx_max], 
+                confianza_global=float(probs_global[idx_max]),
+                probabilidades_json={n: float(p) for n, p in zip(clases_nombres, probs_global)}
             )
 
-        # 8. Registro de actividad y respuesta
-        LogActividad.objects.create(
-            usuario=user_final, 
-            accion='UPLOAD', 
-            detalles=f"Analizado {file_obj.name} - Detectado como {clases_nombres[idx_max]}"
-        )
+            # Guardar el TOP 5 de funciones por atención (Explicabilidad)
+            top_i = attn.argsort()[-5:][::-1]
+            for i in top_i:
+                set_probs = {clases_nombres[j]: float(probs_instancias[i][j]) for j in range(len(clases_nombres))}
+                DetalleFuncion.objects.create(
+                    analisis=analisis_obj, 
+                    direccion_memoria=addrs[i], 
+                    atencion_score=float(attn[i]), 
+                    prediccion_especifica=set_probs
+                )
         
-        return Response(AnalisisSerializer(res).data)
+        # 2. VINCULACIÓN: Crear la relación entre el usuario actual y el análisis
+        # Usamos update_or_create por si el usuario re-sube el mismo archivo, 
+        # así actualizamos la fecha de su historial personal.
+        subida_rel, created = Subida.objects.update_or_create(
+            usuario=user_actual,
+            analisis=analisis_obj,
+            defaults={'nombre_fichero_personalizado': file_obj.name}
+        )
+
+        # 3. AUDITORÍA Y RESPUESTA
+        log_msg = f"Subida exitosa: {file_obj.name}" if created else f"Re-subida (caché): {file_obj.name}"
+        LogActividad.objects.create(
+            usuario=user_actual, 
+            accion='UPLOAD', 
+            detalles=log_msg
+        )
+
+        return Response(AnalisisSerializer(analisis_obj).data)
 
 class HistorialAnalisisView(generics.ListAPIView):
-    serializer_class = AnalisisSerializer
-    # Solo usuarios logueados pueden ver su historial
-    # (Para pruebas en Postman, si no mandas Token, usaremos el admin por defecto)
-    permission_classes = [IsAuthenticated] 
-    permission_classes = [AllowAny]
+    """
+    Devuelve el historial de archivos que el usuario actual ha subido,
+    incluyendo los resultados del análisis de cada uno.
+    """
+    serializer_class = HistorialSimplificadoSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-        #TODO: quitar lo de usuario anónimo
-        if user.is_anonymous:
-            from django.contrib.auth.models import User
-            user = User.objects.filter(is_superuser=True).first()
-            
-        return Analisis.objects.filter(usuario=user).order_by('-fecha_creacion')
+        # Filtramos por el usuario del JWT y ordenamos por lo más reciente
+        return Subida.objects.filter(usuario=self.request.user).order_by('-fecha_subida')
 
 class DetalleAnalisisView(generics.RetrieveAPIView):
-    """
-    Devuelve los detalles completos de un análisis específico (por ID)
-    siempre que pertenezca al usuario que realiza la petición.
-    """
     serializer_class = AnalisisSerializer
-    permission_classes = [AllowAny] # O IsAuthenticated si ya tienes el login listo
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        #TODO: quitar lo de usuario anónimo
-        user = self.request.user
-        if user.is_anonymous:
-            user = User.objects.filter(is_superuser=True).first()
-            
-        # Filtramos para que solo busque entre los archivos del usuario
-        return Analisis.objects.filter(usuario=user)
+        # Si el análisis con ese ID no es del usuario, devolverá 404 automáticamente
+        return Analisis.objects.filter(usuario=self.request.user)
 
 class RegistroUsuarioView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = RegistroSerializer
+
+class CustomJWTSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        
+        # Añadimos información extra a la respuesta
+        data['user_id'] = self.user.id
+        data['username'] = self.user.username
+        data['email'] = self.user.email
+        return data
+
+class CustomLoginView(TokenObtainPairView):
+    serializer_class = CustomJWTSerializer
