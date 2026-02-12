@@ -116,8 +116,26 @@ class HistorialAnalisisView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        #TODO: quitar lo de usuario anónimo
         if user.is_anonymous:
             from django.contrib.auth.models import User
             user = User.objects.filter(is_superuser=True).first()
             
         return Analisis.objects.filter(usuario=user).order_by('-fecha_creacion')
+
+class DetalleAnalisisView(generics.RetrieveAPIView):
+    """
+    Devuelve los detalles completos de un análisis específico (por ID)
+    siempre que pertenezca al usuario que realiza la petición.
+    """
+    serializer_class = AnalisisSerializer
+    permission_classes = [AllowAny] # O IsAuthenticated si ya tienes el login listo
+
+    def get_queryset(self):
+        #TODO: quitar lo de usuario anónimo
+        user = self.request.user
+        if user.is_anonymous:
+            user = User.objects.filter(is_superuser=True).first()
+            
+        # Filtramos para que solo busque entre los archivos del usuario
+        return Analisis.objects.filter(usuario=user)

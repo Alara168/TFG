@@ -5,11 +5,9 @@ Mirar como funciona DRF (Django REST Framework) y como se integra con todo
 Añadir la url con los datos necesarios que haya que pasar.
 
 Crear endpoints de las cosas que son necesarias:
-    - Evaluar fichero: se sube el fichero, se calcula el hash y en caso de no estar en la BBDD se pasa por el modelo MIL y se devuelve el resultado
     - Ver estadísticas de usuario
     - Login
     - Registro
-    - Historial análisis
     - Analisis id: devuelve el resultado de un fichero específico. Se llegará desde el historial
     - Get estadísitcas admin
 
