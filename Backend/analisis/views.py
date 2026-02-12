@@ -6,7 +6,6 @@ from .models import Analisis, DetalleFuncion, LogActividad, Subida
 from .serializers import AnalisisSerializer, HistorialSimplificadoSerializer
 import torch, pandas as pd
 from rest_framework import generics
-#TODO: no usar Allow Any
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth.models import User
 from .serializers import RegistroSerializer
@@ -116,7 +115,7 @@ class DetalleAnalisisView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         # Si el análisis con ese ID no es del usuario, devolverá 404 automáticamente
-        return Analisis.objects.filter(usuario=self.request.user)
+        return Analisis.objects.filter(subidas_relacionadas__usuario=self.request.user)
 
 class RegistroUsuarioView(generics.CreateAPIView):
     queryset = User.objects.all()

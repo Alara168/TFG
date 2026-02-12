@@ -63,14 +63,6 @@ class RegistroSerializer(serializers.ModelSerializer):
         )
         return user
 
-class HistorialSubidasSerializer(serializers.ModelSerializer):
-    # Incluimos los datos del análisis anidados
-    detalles_analisis = AnalisisSerializer(source='analisis', read_only=True)
-    
-    class Meta:
-        model = Subida
-        fields = ['id', 'nombre_fichero_personalizado', 'fecha_subida', 'detalles_analisis']
-
 class HistorialSimplificadoSerializer(serializers.ModelSerializer):
     # Traemos campos específicos del objeto Analisis relacionado
     resultado_clase = serializers.CharField(source='analisis.resultado_clase', read_only=True)
