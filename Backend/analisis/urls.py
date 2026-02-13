@@ -1,5 +1,12 @@
 from django.urls import path
-from .views import AnalizarBinarioView, HistorialAnalisisView, DetalleAnalisisView, RegistroUsuarioView, CustomLoginView
+from .views import (
+    AnalizarBinarioView, 
+    HistorialAnalisisView, 
+    DetalleAnalisisView, 
+    RegistroUsuarioView,
+    CustomLoginView,
+    CallGraphView
+)
 from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
@@ -9,4 +16,5 @@ urlpatterns = [
     path('registro/', RegistroUsuarioView.as_view(), name='registro'),
     path('login/', CustomLoginView.as_view(), name='token_obtain_pair'),
     path('login/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('analisis/<int:pk>/grafo/', CallGraphView.as_view(), name='analisis-grafo'),
 ]

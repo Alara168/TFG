@@ -5,3 +5,7 @@ Windows: tfg\Scripts\activate
 docker build up -d
 
 python manage.py runserver
+
+Borrar datos de la tabla analisis y reiniciar conteo IDs:
+
+python manage.py shell -c "from django.db import connection; cursor = connection.cursor(); cursor.execute('TRUNCATE TABLE analisis_analisis RESTART IDENTITY CASCADE;'); print('Tabla Analisis reseteada e IDs reiniciados')"

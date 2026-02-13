@@ -20,6 +20,7 @@ class Analisis(models.Model):
     )
     probabilidades_json = models.JSONField(help_text="Distribución de probabilidad")
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    call_graph_json = models.JSONField(null=True, blank=True, help_text="Estructura de nodos y aristas")
 
     class Meta:
         verbose_name_plural = "Análisis"

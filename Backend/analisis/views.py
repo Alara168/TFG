@@ -57,6 +57,14 @@ class AnalizarBinarioView(APIView):
             # --- PROCESAMIENTO DE IA (Solo si el hash es nuevo) ---
             model, pipeline = get_resources()
             raw_feats, addrs = extract_features(file_obj)
+            nodes = [{"id": addr, "label": f"func_{addr[:8]}"} for addr in addrs]
+            # Creamos algunas aristas aleatorias o secuenciales para probar la visualización
+            edges = []
+            if len(nodes) > 1:
+                for i in range(len(nodes) - 1):
+                    edges.append({"source": nodes[i]["id"], "target": nodes[i+1]["id"]})
+    
+            grafo_inicial = {"nodes": nodes, "edges": edges}
             
             if raw_feats is None or len(raw_feats) == 0:
                 return Response({"error": "Error al procesar el binario o extraer funciones."}, status=422)
@@ -88,11 +96,12 @@ class AnalizarBinarioView(APIView):
                 tamano_bytes=file_obj.size,
                 resultado_clase=clases_nombres[idx_max], 
                 confianza_global=float(probs_global[idx_max]),
-                probabilidades_json={n: float(p) for n, p in zip(clases_nombres, probs_global)}
+                probabilidades_json={n: float(p) for n, p in zip(clases_nombres, probs_global)},
+                call_graph_json = grafo_inicial
             )
 
             # Guardar el TOP 5 de funciones por atención (Explicabilidad)
-            top_i = attn.argsort()[-5:][::-1]
+            top_i = attn.argsort()[-20:][::-1]
             for i in top_i:
                 set_probs = {clases_nombres[j]: float(probs_instancias[i][j]) for j in range(len(clases_nombres))}
                 DetalleFuncion.objects.create(
@@ -158,3 +167,65 @@ class CustomJWTSerializer(TokenObtainPairSerializer):
 
 class CustomLoginView(TokenObtainPairView):
     serializer_class = CustomJWTSerializer
+
+class CallGraphView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        subida = Subida.objects.filter(analisis_id=pk, usuario=request.user).first()
+        if not subida: return Response({"error": "No autorizado"}, status=403)
+        
+        analisis = subida.analisis
+
+        # Si ya existe un grafo procesado y guardado, lo devolvemos directamente
+        if analisis.call_graph_json and analisis.call_graph_json.get('procesado', False):
+            return Response(analisis.call_graph_json)
+
+        # --- LÓGICA DE GENERACIÓN DE GRAFO DE CONTEXTO ---
+        # 1. Obtener las Top 20 de la IA
+        top_20 = analisis.detalles_funciones.all().order_by('-atencion_score')[:20]
+        direcciones_top = {f.direccion_memoria for f in top_20}
+        scores_map = {f.direccion_memoria: f.atencion_score for f in top_20}
+
+        # 2. Grafo Base (asumimos que aquí tienes todas las conexiones del binario)
+        # Si base_grafo es muy grande, esto solo se hace UNA VEZ
+        base_grafo = analisis.call_graph_json or {"nodes": [], "edges": []}
+        
+        nodos_finales = {}
+        aristas_finales = []
+        
+        # 3. Buscamos aristas donde al menos uno de los dos nodos sea del Top 20
+        for edge in base_grafo.get("edges", []):
+            u, v = edge["source"], edge["target"]
+            
+            if u in direcciones_top or v in direcciones_top:
+                aristas_finales.append(edge)
+                # Añadimos ambos nodos al conjunto final para que no haya aristas huérfanas
+                for node_id in [u, v]:
+                    if node_id not in nodos_finales:
+                        is_top = node_id in direcciones_top
+                        nodos_finales[node_id] = {
+                            "id": node_id,
+                            "label": f"func_{node_id[-6:]}",
+                            "atencion_score": scores_map.get(node_id, 0),
+                            "is_critical": is_top,
+                            "type": "top_20" if is_top else "context",
+                            "size": 30 if is_top else 10,
+                            "color": "#FF4136" if is_top else "#A9A9A9" # Rojo vs Gris
+                        }
+
+        # 4. Guardamos el resultado en la BD para la próxima vez
+        resultado = {
+            "nodes": list(nodos_finales.values()),
+            "edges": aristas_finales,
+            "procesado": True, # Flag para saber que ya está filtrado
+            "metadata": {
+                "nodos_top": len(direcciones_top),
+                "nodos_contexto": len(nodos_finales) - len(direcciones_top)
+            }
+        }
+        
+        analisis.call_graph_json = resultado
+        analisis.save()
+
+        return Response(resultado)
