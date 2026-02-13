@@ -17,11 +17,35 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class AnalizarBinarioView(APIView):
     permission_classes = [IsAuthenticated]
+    MAX_FILE_SIZE = 10 * 1024 * 1024
+
+    def validate_pe(self, file_obj):
+        """
+        Verifica si el archivo es un ejecutable de Windows (PE) 
+        leyendo los 'Magic Bytes'.
+        """
+        # Los archivos PE siempre empiezan con 'MZ' (0x4D 0x5A)
+        file_obj.seek(0)
+        header = file_obj.read(2)
+        file_obj.seek(0) # Resetear el puntero para que el resto del código pueda leerlo
+        
+        if header != b'MZ':
+            return False
+        return True
 
     def post(self, request):
         file_obj = request.FILES.get('archivo')
         if not file_obj: 
             return Response({"error": "No se proporcionó ningún archivo."}, status=400)
+
+        if file_obj.size > self.MAX_FILE_SIZE:
+            return Response({"error": "El archivo es demasiado grande (máx 10MB)."}, status=413)
+
+        if not self.validate_pe(file_obj):
+            return Response({
+                "error": "Tipo de archivo no soportado.",
+                "detalle": "El modelo solo acepta ejecutables de Windows (Portable Executable) válidos."
+            }, status=415)
 
         user_actual = request.user 
         h = calcular_sha256(file_obj)
