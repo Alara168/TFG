@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',
+    'rest_framework_simplejwt.token_blacklist',
     'analisis',
 ]
 
@@ -56,6 +57,7 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'SIGNING_KEY': SECRET_KEY, # Usa tu clave secreta para firmar
     'AUTH_HEADER_TYPES': ('Bearer',), # Ahora usaremos "Bearer <token>"
+    'BLACKLIST_AFTER_ROTATION': True, #Invalida token viejo cuando se crea uno nuevo
 }
 
 MIDDLEWARE = [

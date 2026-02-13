@@ -4,14 +4,12 @@ Crear endpoints de las cosas que son necesarias:
     - Ver estadísticas de usuario
     - Get estadísitcas admin
 
-    - Añadir que los JWT caduquen y sean firmados
     - DELETE de un fichero en concreto para el usuario. Borra solo la relación en subida pero no el análisis del fichero.
     - Ver la posibilidad de ver el código y todos los datos de una función en concreto.
     - Exportar informe técnico en PDF
     - Ranking de funciones más peligrosas
     - POST /api/check-hash/ Un endpoint ligero que reciba solo un Hash. Si ya existe en la base de datos, devuelve el resultado al instante; si no, responde que es necesario subir el archivo para un análisis completo.
     - GET /api/admin/user-reputation/ Un ranking de usuarios basado en la "peligrosidad" de lo que suben. Útil para identificar si un usuario específico está siendo el foco de un ataque o si es un investigador activo.
-
 
 
 Revisar los TODO
