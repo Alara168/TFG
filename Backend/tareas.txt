@@ -1,6 +1,7 @@
 Añadir la url con los datos necesarios que haya que pasar.
 
 Crear endpoints de las cosas que son necesarias:
+    - Mover los endpoints de autenticación a urls.py de core y mover las views que correspondan a un nuevo fichero views.py en core
     - Ver estadísticas de usuario
     - Get estadísitcas admin
 

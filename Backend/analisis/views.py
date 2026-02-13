@@ -14,6 +14,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import networkx as nx
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import status
 
 
 class AnalizarBinarioView(APIView):
@@ -264,3 +266,15 @@ class CallGraphView(APIView):
         analisis.save()
 
         return Response(resultado_bypass)
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            refresh_token = request.data["refresh"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()  # Esto lo mete en la BD de tokens invalidados
+            return Response({"detalle": "Sesión cerrada exitosamente."}, status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response({"error": "Token inválido o no proporcionado."}, status=status.HTTP_400_BAD_REQUEST)
