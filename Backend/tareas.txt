@@ -12,5 +12,8 @@ Crear endpoints de las cosas que son necesarias:
     - POST /api/check-hash/ Un endpoint ligero que reciba solo un Hash. Si ya existe en la base de datos, devuelve el resultado al instante; si no, responde que es necesario subir el archivo para un análisis completo.
     - GET /api/admin/user-reputation/ Un ranking de usuarios basado en la "peligrosidad" de lo que suben. Útil para identificar si un usuario específico está siendo el foco de un ataque o si es un investigador activo.
 
+En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
+la velocidad dependa únicamente del modelo de IA. Se puede implementar hilos para aumentar la velocidad?
+Si fuese la única forma poner que el desensamblado se haga con código compilado o algo así.
 
 Revisar los TODO
