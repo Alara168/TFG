@@ -3,9 +3,6 @@ Añadir la url con los datos necesarios que haya que pasar.
 Crear endpoints de las cosas que son necesarias:
     - Ver estadísticas de usuario
     - Get estadísitcas admin
-    - GET /api/analisis/<int:pk>/grafo/ Obtener la estructura completa del Call Graph para la visualización interactiva. Hay que almacenarlo en la BD para no tener que crearlo cada vez. Este endpoint es el corazón de la visualización. Debe devolver un formato compatible con librerías de grafos
-    - GET /api/analisis/<int:pk>/funciones-criticas/ Servir los datos para el Filtrado y Resalte. Este endpoint devuelve exclusivamente las funciones que el modelo MIL identificó con mayor atencion_score. El Frontend usará estos datos para aplicar filtros (ocultar el resto) o cambiar el estilo visual (poner en rojo los nodos críticos). Igual lo mejor es que sea un endpoint junto con el grafo de dependencias para que no haya que realizar 2 llamadas a API
-
 
     - Añadir que los JWT caduquen y sean firmados
     - DELETE de un fichero en concreto para el usuario. Borra solo la relación en subida pero no el análisis del fichero.

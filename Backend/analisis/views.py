@@ -13,6 +13,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+import networkx as nx
 
 
 class AnalizarBinarioView(APIView):
@@ -168,64 +169,98 @@ class CustomJWTSerializer(TokenObtainPairSerializer):
 class CustomLoginView(TokenObtainPairView):
     serializer_class = CustomJWTSerializer
 
+import networkx as nx  # Añade esta importación al principio de tu archivo
+
+# ... (resto de tus importaciones)
+
 class CallGraphView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
         subida = Subida.objects.filter(analisis_id=pk, usuario=request.user).first()
-        if not subida: return Response({"error": "No autorizado"}, status=403)
+        if not subida: 
+            return Response({"error": "No autorizado"}, status=403)
         
         analisis = subida.analisis
 
-        # Si ya existe un grafo procesado y guardado, lo devolvemos directamente
-        if analisis.call_graph_json and analisis.call_graph_json.get('procesado', False):
+        # 1. SI YA EXISTE EN BD Y TIENE EL MÉTODO 'BYPASS', DEVOLVER DIRECTAMENTE
+        # Comprobamos si ya fue procesado con la lógica de bypass para no repetir cálculos
+        if analisis.call_graph_json and analisis.call_graph_json.get('metodo') == 'bypass':
             return Response(analisis.call_graph_json)
 
-        # --- LÓGICA DE GENERACIÓN DE GRAFO DE CONTEXTO ---
-        # 1. Obtener las Top 20 de la IA
-        top_20 = analisis.detalles_funciones.all().order_by('-atencion_score')[:20]
-        direcciones_top = {f.direccion_memoria for f in top_20}
-        scores_map = {f.direccion_memoria: f.atencion_score for f in top_20}
-
-        # 2. Grafo Base (asumimos que aquí tienes todas las conexiones del binario)
-        # Si base_grafo es muy grande, esto solo se hace UNA VEZ
+        # 2. OBTENER DATOS BASE
+        top_20_objs = analisis.detalles_funciones.all().order_by('-atencion_score')[:20]
+        direcciones_top = {f.direccion_memoria for f in top_20_objs}
+        scores_map = {f.direccion_memoria: f.atencion_score for f in top_20_objs}
+        
+        # El grafo original guardado durante el post inicial (contiene todas las aristas detectadas)
         base_grafo = analisis.call_graph_json or {"nodes": [], "edges": []}
         
-        nodos_finales = {}
-        aristas_finales = []
+        # 3. CONSTRUCCIÓN DEL GRAFO CON NETWORKX PARA ANÁLISIS DE RUTAS
+        G = nx.DiGraph()
         
-        # 3. Buscamos aristas donde al menos uno de los dos nodos sea del Top 20
+        # Añadimos TODAS las aristas originales para que NetworkX pueda encontrar caminos
         for edge in base_grafo.get("edges", []):
-            u, v = edge["source"], edge["target"]
-            
-            if u in direcciones_top or v in direcciones_top:
-                aristas_finales.append(edge)
-                # Añadimos ambos nodos al conjunto final para que no haya aristas huérfanas
-                for node_id in [u, v]:
-                    if node_id not in nodos_finales:
-                        is_top = node_id in direcciones_top
-                        nodos_finales[node_id] = {
-                            "id": node_id,
-                            "label": f"func_{node_id[-6:]}",
-                            "atencion_score": scores_map.get(node_id, 0),
-                            "is_critical": is_top,
-                            "type": "top_20" if is_top else "context",
-                            "size": 30 if is_top else 10,
-                            "color": "#FF4136" if is_top else "#A9A9A9" # Rojo vs Gris
-                        }
+            G.add_edge(edge["source"], edge["target"])
 
-        # 4. Guardamos el resultado en la BD para la próxima vez
-        resultado = {
-            "nodes": list(nodos_finales.values()),
-            "edges": aristas_finales,
-            "procesado": True, # Flag para saber que ya está filtrado
+        # 4. LÓGICA DE BYPASS (CONECTAR CRÍTICOS PASANDO POR CONTEXTO)
+        aristas_bypass = []
+        nodos_criticos = [n for n in G.nodes if n in direcciones_top]
+
+        for origen in nodos_criticos:
+            # Buscamos todos los nodos alcanzables desde 'origen'
+            # limitando la profundidad para no saturar el servidor
+            descendientes = nx.descendants(G, origen)
+            
+            for destino in descendientes:
+                if destino in direcciones_top:
+                    # Si el destino es crítico, verificamos si es una conexión "limpia"
+                    # (opcional: puedes quitar este if para ver TODAS las conexiones)
+                    path = nx.shortest_path(G, origen, destino)
+                    
+                    # Dibujamos la arista si no hay otros críticos de por medio
+                    # o si queremos ver el flujo principal
+                    if all(nodo not in direcciones_top for nodo in path[1:-1]):
+                        aristas_bypass.append({
+                            "source": origen,
+                            "target": destino,
+                            "label": "bypass"
+                        })
+
+        # 5. ELIMINAR NODOS HUÉRFANOS (Opcional)
+        # Si quieres un grafo más denso, podemos eliminar los nodos 
+        # que no tienen ninguna conexión.
+        nodos_conectados = set()
+        for edge in aristas_bypass:
+            nodos_conectados.add(edge["source"])
+            nodos_conectados.add(edge["target"])
+
+        nodos_finales = [
+            {
+                "id": node_id,
+                "label": f"func_{node_id[-6:]}",
+                "atencion_score": scores_map.get(node_id, 0),
+                "is_critical": True,
+                "size": 30,
+                "color": "#FF4136"
+            }
+            for node_id in nodos_criticos if node_id in nodos_conectados
+        ]
+
+        # 6. ESTRUCTURA FINAL Y PERSISTENCIA
+        resultado_bypass = {
+            "nodes": nodos_finales,
+            "edges": aristas_bypass,
+            "metodo": "bypass",  # Marcador para saber que ya está procesado
+            "procesado": True,
             "metadata": {
-                "nodos_top": len(direcciones_top),
-                "nodos_contexto": len(nodos_finales) - len(direcciones_top)
+                "nodos_originales_top": len(nodos_finales),
+                "aristas_bypass_generadas": len(aristas_bypass)
             }
         }
-        
-        analisis.call_graph_json = resultado
+
+        # Guardamos en la base de datos para que la siguiente llamada sea instantánea
+        analisis.call_graph_json = resultado_bypass
         analisis.save()
 
-        return Response(resultado)
+        return Response(resultado_bypass)
