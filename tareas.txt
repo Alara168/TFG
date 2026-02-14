@@ -1,5 +1,11 @@
 Añadir la url con los datos necesarios que haya que pasar.
 
+Revisar los warnings de react
+
+Priorizar la página de ver análisis para que sea dinámica y dibuje todo perfectamente.
+Hacer más análisis para poder realizar el gráfico de tendencias
+Poner en español los textos
+
 Crear endpoints de las cosas que son necesarias:
     - Ver estadísticas de usuario
     - Get estadísitcas admin
@@ -10,6 +16,8 @@ Crear endpoints de las cosas que son necesarias:
     - GET /api/admin/user-reputation/ Un ranking de usuarios basado en la "peligrosidad" de lo que suben. Útil para identificar si un usuario específico está siendo el foco de un ataque o si es un investigador activo.
     - Ver la posibilidad de ver el código y todos los datos de una función en concreto.
     - Exportar informe técnico en PDF
+
+    - Añadir encriptamiento a las contraseñas para que se envíen y almacenen encriptadas
     
 En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
 la velocidad dependa únicamente del modelo de IA. Se puede implementar hilos para aumentar la velocidad?

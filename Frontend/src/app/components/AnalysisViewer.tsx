@@ -29,14 +29,14 @@ export function AnalysisViewer() {
   const filteredNodes = functionNodes.filter(node => node.attention >= attentionFilter);
 
   const getNodeColor = (attention: number) => {
-    if (attention >= 0.8) return '#FF3131';
-    if (attention >= 0.5) return '#FFA500';
-    return '#00FF41';
+    if (attention >= 0.8) return '#FF3131'; // Rojo para alta atención
+    if (attention >= 0.5) return '#FFA500'; // Naranja para atención media
+    return '#00FF41'; // Verde para benigno/baja atención
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
+      {/* Cabecera */}
       <header className="bg-card border-b border-border px-8 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -47,86 +47,86 @@ export function AnalysisViewer() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Analysis Results</h1>
+              <h1 className="text-xl font-bold text-foreground">Resultados del Análisis</h1>
               <p className="text-xs text-muted-foreground">malware_sample_1.exe</p>
             </div>
           </div>
           <button
             onClick={() => navigate('/dashboard')}
-            className="text-sm text-primary hover:opacity-80"
+            className="text-sm text-primary hover:opacity-80 font-medium"
           >
-            Back to History
+            Volver al Historial
           </button>
         </div>
       </header>
 
-      <div className="flex-1 flex">
-        {/* Left Sidebar - Classification Result */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Barra lateral izquierda - Clasificación */}
         <div className="w-80 bg-card border-r border-border p-6 space-y-6 overflow-y-auto">
           <div>
-            <h2 className="text-lg font-semibold text-foreground mb-4">Classification</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Clasificación</h2>
             <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="w-6 h-6 text-destructive" />
                 <span className="font-bold text-2xl text-destructive">98%</span>
               </div>
-              <p className="text-destructive font-semibold">Malicious</p>
-              <p className="text-sm text-destructive/80 mt-1">Ransomware Family</p>
+              <p className="text-destructive font-semibold">Malicioso</p>
+              <p className="text-sm text-destructive/80 mt-1">Familia: Ransomware</p>
             </div>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-foreground mb-3">Metadata</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-3">Metadatos</h3>
             <div className="space-y-2 text-sm">
-              <div>
-                <p className="text-muted-foreground">File Size</p>
+              <div className="flex justify-between">
+                <p className="text-muted-foreground">Tamaño</p>
                 <p className="text-foreground font-mono">2.4 MB</p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Architecture</p>
+              <div className="flex justify-between">
+                <p className="text-muted-foreground">Arquitectura</p>
                 <p className="text-foreground font-mono">x86_64</p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Compiler</p>
+              <div className="flex justify-between">
+                <p className="text-muted-foreground">Compilador</p>
                 <p className="text-foreground font-mono">MSVC 19.0</p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Entropy</p>
+              <div className="flex justify-between">
+                <p className="text-muted-foreground">Entropía</p>
                 <p className="text-foreground font-mono">7.89</p>
               </div>
             </div>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-foreground mb-3">Threat Indicators</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-3">Indicadores de Amenaza</h3>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <div className="w-2 h-2 bg-destructive rounded-full"></div>
-                <span className="text-foreground">File Encryption</span>
+                <span className="text-foreground">Cifrado de Archivos</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <div className="w-2 h-2 bg-destructive rounded-full"></div>
-                <span className="text-foreground">C2 Communication</span>
+                <span className="text-foreground">Comunicación C2</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <div className="w-2 h-2 bg-accent rounded-full"></div>
-                <span className="text-foreground">Keylogging</span>
+                <span className="text-foreground">Captura de Teclado (Keylogging)</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <div className="w-2 h-2 bg-destructive rounded-full"></div>
-                <span className="text-foreground">Registry Modification</span>
+                <span className="text-foreground">Modificación del Registro</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Main Area - Call Graph */}
+        {/* Área Principal - Grafo de Llamadas */}
         <div className="flex-1 flex flex-col">
-          {/* Top Bar - Attention Filter */}
+          {/* Barra Superior - Filtro de Atención */}
           <div className="bg-card border-b border-border px-6 py-4">
             <div className="flex items-center gap-4">
               <Filter className="w-5 h-5 text-muted-foreground" />
-              <label className="text-sm text-foreground">Attention Filter:</label>
+              <label className="text-sm text-foreground">Filtro de Atención (IA):</label>
               <input
                 type="range"
                 min="0"
@@ -134,16 +134,18 @@ export function AnalysisViewer() {
                 step="0.1"
                 value={attentionFilter}
                 onChange={(e) => setAttentionFilter(parseFloat(e.target.value))}
-                className="flex-1 max-w-xs"
+                className="flex-1 max-w-xs accent-primary"
               />
-              <span className="text-sm text-foreground font-mono">{attentionFilter.toFixed(1)}</span>
+              <span className="text-sm text-foreground font-mono bg-secondary px-2 py-1 rounded">
+                {(attentionFilter * 100).toFixed(0)}%
+              </span>
             </div>
           </div>
 
-          {/* Call Graph */}
+          {/* Grafo SVG */}
           <div className="flex-1 relative overflow-hidden bg-background">
             <svg className="w-full h-full">
-              {/* Draw connections */}
+              {/* Conexiones */}
               {filteredNodes.map(node =>
                 node.calls.map(targetId => {
                   const target = filteredNodes.find(n => n.id === targetId);
@@ -152,9 +154,9 @@ export function AnalysisViewer() {
                     <line
                       key={`${node.id}-${targetId}`}
                       x1={node.x}
-                      y1={node.y + 30}
+                      y1={node.y + 15}
                       x2={target.x}
-                      y2={target.y}
+                      y2={target.y + 15}
                       stroke="#333"
                       strokeWidth="2"
                     />
@@ -162,10 +164,9 @@ export function AnalysisViewer() {
                 })
               )}
 
-              {/* Draw nodes */}
+              {/* Nodos */}
               {filteredNodes.map(node => (
                 <g key={node.id} onClick={() => setSelectedFunction(node)} className="cursor-pointer">
-                  {/* Glow effect for high attention */}
                   {node.attention >= 0.8 && (
                     <circle
                       cx={node.x}
@@ -176,7 +177,6 @@ export function AnalysisViewer() {
                       className="animate-pulse"
                     />
                   )}
-                  {/* Node circle */}
                   <circle
                     cx={node.x}
                     cy={node.y + 15}
@@ -185,7 +185,6 @@ export function AnalysisViewer() {
                     stroke={selectedFunction?.id === node.id ? '#fff' : 'none'}
                     strokeWidth="3"
                   />
-                  {/* Node label */}
                   <text
                     x={node.x}
                     y={node.y + 50}
@@ -193,10 +192,10 @@ export function AnalysisViewer() {
                     fill="#E0E0E0"
                     fontSize="12"
                     fontFamily="monospace"
+                    className="font-medium"
                   >
                     {node.name}
                   </text>
-                  {/* Attention score */}
                   <text
                     x={node.x}
                     y={node.y + 65}
@@ -213,65 +212,67 @@ export function AnalysisViewer() {
           </div>
         </div>
 
-        {/* Right Side Panel - Code Inspector */}
+        {/* Panel Derecho - Inspector de Código */}
         {selectedFunction && (
-          <div className="w-96 bg-card border-l border-border p-6 overflow-y-auto">
+          <div className="w-96 bg-card border-l border-border p-6 overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Code className="w-5 h-5 text-primary" />
-                Code Inspector
+                Inspector de Código
               </h2>
               <button
                 onClick={() => setSelectedFunction(null)}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground p-1"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Function</p>
-                <p className="text-foreground font-mono font-semibold">{selectedFunction.name}</p>
+                <p className="text-sm text-muted-foreground mb-1">Función Detectada</p>
+                <p className="text-foreground font-mono font-bold bg-secondary/50 px-2 py-1 rounded">
+                  {selectedFunction.name}
+                </p>
               </div>
 
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Attention Weight</p>
+                <p className="text-sm text-muted-foreground mb-1">Peso de Atención (IA)</p>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
                     <div
-                      className="h-full"
+                      className="h-full transition-all duration-500"
                       style={{
                         width: `${selectedFunction.attention * 100}%`,
                         backgroundColor: getNodeColor(selectedFunction.attention),
                       }}
                     ></div>
                   </div>
-                  <span className="text-sm font-mono" style={{ color: getNodeColor(selectedFunction.attention) }}>
+                  <span className="text-sm font-mono font-bold" style={{ color: getNodeColor(selectedFunction.attention) }}>
                     {(selectedFunction.attention * 100).toFixed(1)}%
                   </span>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm text-muted-foreground mb-2">Pseudo-C Code</p>
-                <div className="bg-background border border-border rounded p-3 font-mono text-xs overflow-x-auto">
+                <p className="text-sm text-muted-foreground mb-2">Código Descompilado (Pseudo-C)</p>
+                <div className="bg-background border border-border rounded p-3 font-mono text-xs overflow-x-auto leading-relaxed">
                   <pre className="text-foreground">
                     <code>
 {`void ${selectedFunction.name}() {
-  // Decompiled code
+  // Código generado por el motor de IA
   ${selectedFunction.name === 'encrypt_files' ? `
-  char* path = "C:\\\\Users\\\\";
-  traverse_dir(path);
-  for (file in files) {
-    aes_encrypt(file);
-    rename(file, ".locked");
+  char* ruta = "C:\\\\Users\\\\";
+  recorrer_directorio(ruta);
+  for (archivo in archivos) {
+    cifrado_aes(archivo);
+    renombrar(archivo, ".locked");
   }` : selectedFunction.name === 'connect_c2' ? `
-  char* c2_server = "malicious.com";
-  connect(c2_server, 443);
-  send_host_info();` : `
-  // Function implementation
-  perform_action();
+  char* servidor_c2 = "malicious.com";
+  conectar(servidor_c2, 443);
+  enviar_info_host();` : `
+  // Implementación de la función
+  ejecutar_accion_binaria();
   return 0;`}
 }`}
                     </code>
@@ -280,11 +281,11 @@ export function AnalysisViewer() {
               </div>
 
               {selectedFunction.name === 'encrypt_files' && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">YARA Matches</p>
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <p className="text-sm text-muted-foreground mb-2">Coincidencias YARA</p>
                   <div className="bg-destructive/10 border border-destructive rounded p-3 text-xs">
-                    <p className="text-destructive font-mono">ransomware_generic</p>
-                    <p className="text-destructive/80 mt-1">File encryption behavior detected</p>
+                    <p className="text-destructive font-mono font-bold">ransomware_generico_v3</p>
+                    <p className="text-destructive/80 mt-1">Detectado comportamiento de cifrado masivo de archivos.</p>
                   </div>
                 </div>
               )}

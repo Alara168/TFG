@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileCode, Info, ArrowLeft, Play } from 'lucide-react';
+import { Upload, FileCode, Info, ArrowLeft, Play, Loader2 } from 'lucide-react';
+import { authService } from '../services/auth.service';
 
 export function UploadPage() {
   const navigate = useNavigate();
@@ -8,6 +9,10 @@ export function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [enableYARA, setEnableYARA] = useState(false);
   const [enablePseudoLabel, setEnablePseudoLabel] = useState(false);
+  
+  // Estados para manejar la petición
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -32,8 +37,42 @@ export function UploadPage() {
     }
   };
 
-  const handleAnalyze = () => {
-    navigate('/analysis');
+  // --- LÓGICA DE ENVÍO AL BACKEND ---
+  const handleAnalyze = async () => {
+    if (!file) return;
+
+    setIsAnalyzing(true);
+    setError(null);
+
+    const formData = new FormData();
+    formData.append('archivo', file);
+    formData.append('enable_yara', String(enableYARA));
+    formData.append('enable_pseudo_label', String(enablePseudoLabel));
+
+    try {
+      const token = authService.getToken();
+      const response = await fetch('http://localhost:8000/api/analizar/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Error en el análisis');
+      }
+
+      const analysisData = await response.json();
+      // Navegamos al ID del análisis devuelto por el backend
+      navigate(`/analysis/${analysisData.id}`, { state: { result: analysisData } });
+      
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -44,12 +83,8 @@ export function UploadPage() {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  // Mock metadata
-  const mockHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="bg-card border-b border-border px-8 py-4">
         <div className="flex items-center gap-3">
           <button
@@ -63,15 +98,21 @@ export function UploadPage() {
               <FileCode className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Binary Upload</h1>
-              <p className="text-xs text-muted-foreground">Deep Learning Analysis</p>
+              <h1 className="text-xl font-bold text-foreground">Subida de Binarios</h1>
+              <p className="text-xs text-muted-foreground">Análisis mediante Deep Learning</p>
             </div>
           </div>
         </div>
       </header>
 
       <div className="p-8 max-w-4xl mx-auto space-y-8">
-        {/* Drag & Drop Zone */}
+        {/* Alerta de Error */}
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -87,53 +128,45 @@ export function UploadPage() {
             className="hidden"
             onChange={handleFileSelect}
             accept=".exe,.dll,.bin,.elf,.so"
+            disabled={isAnalyzing}
           />
-          <label htmlFor="file-upload" className="cursor-pointer block">
+          <label htmlFor="file-upload" className={`cursor-pointer block ${isAnalyzing && 'opacity-50 cursor-not-allowed'}`}>
             <Upload className={`w-16 h-16 mx-auto mb-4 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
             <h3 className="text-lg font-semibold text-foreground mb-2">
-              {file ? file.name : 'Drag & Drop Binary File'}
+              {file ? file.name : 'Arrastre y suelte el archivo binario'}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {file ? 'Click to change file' : 'or click to browse'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Supported formats: .exe, .dll, .bin, .elf, .so
+              {file ? 'Haga clic para cambiar de archivo' : 'o haga clic para buscar en su equipo'}
             </p>
           </label>
         </div>
 
-        {/* Metadata Preview */}
         {file && (
-          <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+          <div className="bg-card border border-border rounded-lg p-6 space-y-4 shadow-sm">
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <Info className="w-5 h-5 text-primary" />
-              Metadata Preview
+              Vista Previa de Metadatos
             </h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">File Size</p>
+                <p className="text-sm text-muted-foreground mb-1">Tamaño del Archivo</p>
                 <p className="text-foreground font-mono">{formatFileSize(file.size)}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Architecture</p>
-                <p className="text-foreground font-mono">x86_64</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-sm text-muted-foreground mb-1">SHA-256 Hash</p>
-                <p className="text-foreground font-mono text-xs break-all">{mockHash}</p>
+                <p className="text-sm text-muted-foreground mb-1">Arquitectura Detectada</p>
+                <p className="text-foreground font-mono">x86_64 / PE</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Advanced Options */}
+        {/* Opciones Avanzadas */}
         <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Advanced Options</h2>
-          
+          <h2 className="text-lg font-semibold text-foreground">Opciones Avanzadas</h2>
           <div className="flex items-center justify-between py-3 border-b border-border">
             <div>
-              <p className="text-foreground">YARA Scanning</p>
-              <p className="text-xs text-muted-foreground">Apply signature-based detection rules</p>
+              <p className="text-foreground font-medium">Escaneo YARA</p>
+              <p className="text-xs text-muted-foreground">Aplicar reglas de detección basadas en firmas</p>
             </div>
             <label className="relative inline-block w-12 h-6">
               <input
@@ -141,16 +174,16 @@ export function UploadPage() {
                 checked={enableYARA}
                 onChange={(e) => setEnableYARA(e.target.checked)}
                 className="sr-only peer"
+                disabled={isAnalyzing}
               />
               <span className="absolute inset-0 bg-secondary rounded-full transition-colors peer-checked:bg-primary cursor-pointer"></span>
               <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></span>
             </label>
           </div>
-
           <div className="flex items-center justify-between py-3">
             <div>
-              <p className="text-foreground">Pseudo-labeling</p>
-              <p className="text-xs text-muted-foreground">Enable semi-supervised learning mode</p>
+              <p className="text-foreground font-medium">Pseudo-etiquetado</p>
+              <p className="text-xs text-muted-foreground">Activar modo de aprendizaje semi-supervisado</p>
             </div>
             <label className="relative inline-block w-12 h-6">
               <input
@@ -158,6 +191,7 @@ export function UploadPage() {
                 checked={enablePseudoLabel}
                 onChange={(e) => setEnablePseudoLabel(e.target.checked)}
                 className="sr-only peer"
+                disabled={isAnalyzing}
               />
               <span className="absolute inset-0 bg-secondary rounded-full transition-colors peer-checked:bg-primary cursor-pointer"></span>
               <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></span>
@@ -165,14 +199,23 @@ export function UploadPage() {
           </div>
         </div>
 
-        {/* Analyze Button */}
         {file && (
           <button
             onClick={handleAnalyze}
-            className="w-full bg-primary text-primary-foreground py-4 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2 font-semibold text-lg"
+            disabled={isAnalyzing}
+            className="w-full bg-primary text-primary-foreground py-4 rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2 font-semibold text-lg disabled:opacity-50"
           >
-            <Play className="w-5 h-5" />
-            Start Deep Analysis
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Analizando Binario...
+              </>
+            ) : (
+              <>
+                <Play className="w-5 h-5" />
+                Iniciar Análisis Profundo
+              </>
+            )}
           </button>
         )}
       </div>

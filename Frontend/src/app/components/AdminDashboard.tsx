@@ -21,17 +21,17 @@ const resourceData = [
 ];
 
 const pseudoLabels = [
-  { id: 1, filename: 'sample_001.exe', confidence: 0.96, prediction: 'Malicious', status: 'pending' },
-  { id: 2, filename: 'sample_002.dll', confidence: 0.89, prediction: 'Benign', status: 'pending' },
-  { id: 3, filename: 'sample_003.bin', confidence: 0.92, prediction: 'Malicious', status: 'pending' },
-  { id: 4, filename: 'sample_004.elf', confidence: 0.88, prediction: 'Benign', status: 'pending' },
+  { id: 1, filename: 'muestra_001.exe', confidence: 0.96, prediction: 'Malicioso', status: 'pendiente' },
+  { id: 2, filename: 'muestra_002.dll', confidence: 0.89, prediction: 'Benigno', status: 'pendiente' },
+  { id: 3, filename: 'muestra_003.bin', confidence: 0.92, prediction: 'Malicioso', status: 'pendiente' },
+  { id: 4, filename: 'muestra_004.elf', confidence: 0.88, prediction: 'Benigno', status: 'pendiente' },
 ];
 
 const userLogs = [
-  { id: 1, user: 'analyst_01', action: 'File Analysis', timestamp: '2026-01-03 14:23:15', ip: '192.168.1.10' },
-  { id: 2, user: 'analyst_02', action: 'Export Report', timestamp: '2026-01-03 14:15:42', ip: '192.168.1.11' },
-  { id: 3, user: 'admin_user', action: 'Model Update', timestamp: '2026-01-03 13:58:30', ip: '192.168.1.5' },
-  { id: 4, user: 'analyst_01', action: 'File Upload', timestamp: '2026-01-03 13:45:12', ip: '192.168.1.10' },
+  { id: 1, user: 'analista_01', action: 'Análisis de Archivo', timestamp: '2026-01-03 14:23:15', ip: '192.168.1.10' },
+  { id: 2, user: 'analista_02', action: 'Exportar Reporte', timestamp: '2026-01-03 14:15:42', ip: '192.168.1.11' },
+  { id: 3, user: 'admin_root', action: 'Actualización de Modelo', timestamp: '2026-01-03 13:58:30', ip: '192.168.1.5' },
+  { id: 4, user: 'analista_01', action: 'Subida de Archivo', timestamp: '2026-01-03 13:45:12', ip: '192.168.1.10' },
 ];
 
 export function AdminDashboard() {
@@ -53,58 +53,58 @@ export function AdminDashboard() {
               <Shield className="w-6 h-6 text-destructive" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Admin Dashboard</h1>
-              <p className="text-xs text-muted-foreground">System Health & Management</p>
+              <h1 className="text-xl font-bold text-foreground">Panel de Administración</h1>
+              <p className="text-xs text-muted-foreground">Estado del Sistema y Gestión</p>
             </div>
           </div>
         </div>
       </header>
 
       <div className="p-8 space-y-8">
-        {/* System Metrics KPIs */}
+        {/* KPIs de Métricas del Sistema */}
         <div className="grid grid-cols-4 gap-6">
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-muted-foreground">GPU Load</h3>
+              <h3 className="text-sm text-muted-foreground font-medium">Carga de GPU</h3>
               <Cpu className="w-5 h-5 text-accent" />
             </div>
             <p className="text-3xl font-bold text-foreground">68%</p>
-            <p className="text-xs text-muted-foreground mt-1">MIL Inference</p>
+            <p className="text-xs text-muted-foreground mt-1">Inferencia MIL activa</p>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-muted-foreground">CPU Load</h3>
+              <h3 className="text-sm text-muted-foreground font-medium">Carga de CPU</h3>
               <Activity className="w-5 h-5 text-primary" />
             </div>
             <p className="text-3xl font-bold text-foreground">54%</p>
-            <p className="text-xs text-muted-foreground mt-1">Average utilization</p>
+            <p className="text-xs text-muted-foreground mt-1">Uso promedio del sistema</p>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-muted-foreground">Active Users</h3>
+              <h3 className="text-sm text-muted-foreground font-medium">Usuarios Activos</h3>
               <Users className="w-5 h-5 text-primary" />
             </div>
             <p className="text-3xl font-bold text-foreground">24</p>
-            <p className="text-xs text-muted-foreground mt-1">Currently online</p>
+            <p className="text-xs text-muted-foreground mt-1">Sesiones en línea</p>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-muted-foreground">Dataset Size</h3>
+              <h3 className="text-sm text-muted-foreground font-medium">Tamaño del Dataset</h3>
               <Database className="w-5 h-5 text-accent" />
             </div>
             <p className="text-3xl font-bold text-foreground">45K</p>
-            <p className="text-xs text-muted-foreground mt-1">Training samples</p>
+            <p className="text-xs text-muted-foreground mt-1">Muestras de entrenamiento</p>
           </div>
         </div>
 
-        {/* Charts Row */}
+        {/* Fila de Gráficos */}
         <div className="grid grid-cols-2 gap-6">
-          {/* GPU/CPU Load Chart */}
+          {/* Gráfico de Recursos */}
           <div className="bg-card border border-border rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Resource Utilization (24h)</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Utilización de Recursos (24h)</h2>
             <ResponsiveContainer width="100%" height={250}>
               <AreaChart data={resourceData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
@@ -114,15 +114,15 @@ export function AdminDashboard() {
                   contentStyle={{ backgroundColor: '#1E1E1E', border: '1px solid #333', borderRadius: '8px' }}
                   labelStyle={{ color: '#E0E0E0' }}
                 />
-                <Area type="monotone" dataKey="gpu" stroke="#FFA500" fill="#FFA500" fillOpacity={0.3} />
-                <Area type="monotone" dataKey="cpu" stroke="#00FF41" fill="#00FF41" fillOpacity={0.3} />
+                <Area name="GPU" type="monotone" dataKey="gpu" stroke="#FFA500" fill="#FFA500" fillOpacity={0.3} />
+                <Area name="CPU" type="monotone" dataKey="cpu" stroke="#00FF41" fill="#00FF41" fillOpacity={0.3} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Model Performance Chart */}
+          {/* Gráfico de Rendimiento del Modelo */}
           <div className="bg-card border border-border rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Model Performance (Precision/Recall)</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Métricas del Modelo (Precisión / Recall)</h2>
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={performanceData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
@@ -132,24 +132,24 @@ export function AdminDashboard() {
                   contentStyle={{ backgroundColor: '#1E1E1E', border: '1px solid #333', borderRadius: '8px' }}
                   labelStyle={{ color: '#E0E0E0' }}
                 />
-                <Line type="monotone" dataKey="precision" stroke="#00FF41" strokeWidth={2} dot={{ fill: '#00FF41' }} />
-                <Line type="monotone" dataKey="recall" stroke="#00D4FF" strokeWidth={2} dot={{ fill: '#00D4FF' }} />
+                <Line name="Precisión" type="monotone" dataKey="precision" stroke="#00FF41" strokeWidth={2} dot={{ fill: '#00FF41' }} />
+                <Line name="Recall" type="monotone" dataKey="recall" stroke="#00D4FF" strokeWidth={2} dot={{ fill: '#00D4FF' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Dataset Management */}
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Dataset Management - Pseudo-labeled Samples</h2>
+        {/* Gestión del Dataset */}
+        <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Gestión del Dataset - Pseudo-etiquetado</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Filename</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Confidence</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Prediction</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Actions</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Nombre del Archivo</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Confianza</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Predicción</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -162,19 +162,19 @@ export function AdminDashboard() {
                       <span className="text-foreground font-mono">{(item.confidence * 100).toFixed(1)}%</span>
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`text-sm font-semibold ${item.prediction === 'Malicious' ? 'text-destructive' : 'text-primary'}`}>
+                      <span className={`text-sm font-semibold ${item.prediction === 'Malicioso' ? 'text-destructive' : 'text-primary'}`}>
                         {item.prediction}
                       </span>
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
-                        <button className="text-primary hover:text-primary/80 flex items-center gap-1 text-sm">
+                        <button className="text-primary hover:text-primary/80 flex items-center gap-1 text-sm font-medium transition-colors">
                           <CheckCircle className="w-4 h-4" />
-                          Approve
+                          Aprobar
                         </button>
-                        <button className="text-destructive hover:text-destructive/80 flex items-center gap-1 text-sm">
+                        <button className="text-destructive hover:text-destructive/80 flex items-center gap-1 text-sm font-medium transition-colors">
                           <XCircle className="w-4 h-4" />
-                          Reject
+                          Rechazar
                         </button>
                       </div>
                     </td>
@@ -185,17 +185,17 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        {/* User Access Logs */}
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">User Access Logs</h2>
+        {/* Logs de Acceso */}
+        <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Registros de Acceso de Usuarios</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">User</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Action</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Timestamp</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">IP Address</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Usuario</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Acción</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Marca de Tiempo</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Dirección IP</th>
                 </tr>
               </thead>
               <tbody>

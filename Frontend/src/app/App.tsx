@@ -17,6 +17,7 @@ export default function App() {
           <Route path="/analysis" element={<AnalysisViewer />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/analysis/:id" element={<AnalysisViewer />} />
         </Routes>
       </BrowserRouter>
     </div>

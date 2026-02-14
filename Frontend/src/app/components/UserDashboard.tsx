@@ -1,42 +1,75 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FileText, AlertTriangle, Clock, Upload, Eye } from 'lucide-react';
+import { FileText, AlertTriangle, Clock, Upload, Eye, Loader2 } from 'lucide-react';
+
+interface AnalysisRecord {
+  id: number;
+  nombre_fichero_personalizado: string;
+  hash_sha256: string;
+  resultado_clase: string;
+  confianza_global: number;
+  tamano_bytes: number;
+  fecha_subida: string;
+}
 
 const trendData = [
-  { month: 'Jan', Ransomware: 12, Trojan: 8 },
+  { month: 'Ene', Ransomware: 12, Trojan: 8 },
   { month: 'Feb', Ransomware: 19, Trojan: 14 },
   { month: 'Mar', Ransomware: 15, Trojan: 18 },
-  { month: 'Apr', Ransomware: 25, Trojan: 12 },
+  { month: 'Abr', Ransomware: 25, Trojan: 12 },
   { month: 'May', Ransomware: 22, Trojan: 20 },
   { month: 'Jun', Ransomware: 30, Trojan: 25 },
 ];
 
-const analysisHistory = [
-  { id: 1, name: 'malware_sample_1.exe', hash: '3f8a9c2d...', date: '2026-01-02', status: 'Malicious', score: 98 },
-  { id: 2, name: 'update_installer.dll', hash: '7b2e1f5a...', date: '2026-01-02', status: 'Benign', score: 5 },
-  { id: 3, name: 'trojan_variant.bin', hash: '9d4c3a8e...', date: '2026-01-01', status: 'Malicious', score: 95 },
-  { id: 4, name: 'system_cleaner.exe', hash: '2a5f8c1b...', date: '2026-01-01', status: 'Suspicious', score: 67 },
-  { id: 5, name: 'crypto_miner.elf', hash: '6e9d2a4f...', date: '2025-12-31', status: 'Malicious', score: 89 },
-];
-
 export function UserDashboard() {
   const navigate = useNavigate();
+  const [history, setHistory] = useState<AnalysisRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHistorial = async () => {
+      try {
+        const token = localStorage.getItem('access_token'); 
+        const response = await fetch('http://localhost:8000/api/historial/', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setHistory(data);
+        }
+      } catch (error) {
+        console.error('Error al obtener el historial:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchHistorial();
+  }, []);
 
   const getStatusColor = (status: string) => {
-    if (status === 'Malicious') return 'text-destructive';
-    if (status === 'Benign') return 'text-primary';
-    return 'text-accent';
+    if (status.toLowerCase().includes('benigno')) return 'text-primary';
+    return 'text-destructive';
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-destructive';
-    if (score >= 50) return 'text-accent';
+    const s = score * 100;
+    if (s >= 80) return 'text-destructive';
+    if (s >= 50) return 'text-accent';
     return 'text-primary';
   };
 
+  const totalFiles = history.length;
+  const highRiskCount = history.filter(item => !item.resultado_clase.toLowerCase().includes('benigno')).length;
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
+    <div className="min-h-screen bg-background text-foreground">
       <header className="bg-card border-b border-border px-8 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -44,8 +77,8 @@ export function UserDashboard() {
               <FileText className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">MIL-Malware Analyzer</h1>
-              <p className="text-xs text-muted-foreground">Analysis Dashboard</p>
+              <h1 className="text-xl font-bold">MIL-Malware Analyzer</h1>
+              <p className="text-xs text-muted-foreground">Panel de Análisis</p>
             </div>
           </div>
           <button
@@ -53,7 +86,7 @@ export function UserDashboard() {
             className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:opacity-90 transition-opacity flex items-center gap-2"
           >
             <Upload className="w-4 h-4" />
-            New Analysis
+            Nuevo Análisis
           </button>
         </div>
       </header>
@@ -61,103 +94,121 @@ export function UserDashboard() {
       <div className="p-8 space-y-8">
         {/* KPIs */}
         <div className="grid grid-cols-3 gap-6">
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-muted-foreground">Total Files</h3>
+              <h3 className="text-sm text-muted-foreground">Total Analizados</h3>
               <FileText className="w-5 h-5 text-primary" />
             </div>
-            <p className="text-3xl font-bold text-foreground">1,247</p>
-            <p className="text-xs text-muted-foreground mt-1">+12% from last month</p>
+            <p className="text-3xl font-bold">{totalFiles}</p>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-muted-foreground">High Risk Detected</h3>
+              <h3 className="text-sm text-muted-foreground">Amenazas Detectadas</h3>
               <AlertTriangle className="w-5 h-5 text-destructive" />
             </div>
-            <p className="text-3xl font-bold text-destructive">247</p>
-            <p className="text-xs text-muted-foreground mt-1">19.8% detection rate</p>
+            <p className="text-3xl font-bold text-destructive">{highRiskCount}</p>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-muted-foreground">Avg. Analysis Time</h3>
+              <h3 className="text-sm text-muted-foreground">Tasa de Detección</h3>
               <Clock className="w-5 h-5 text-accent" />
             </div>
-            <p className="text-3xl font-bold text-foreground">2.4s</p>
-            <p className="text-xs text-muted-foreground mt-1">-15% faster</p>
+            <p className="text-3xl font-bold">
+              {totalFiles > 0 ? ((highRiskCount / totalFiles) * 100).toFixed(1) : 0}%
+            </p>
           </div>
         </div>
 
-        {/* Chart */}
+        {/* Gráfico */}
         <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Threat Families Detected Over Time</h2>
-          <ResponsiveContainer width="100%" height={300}>
+          <h2 className="text-lg font-semibold mb-4">Tendencias de Amenazas</h2>
+          <ResponsiveContainer width="100%" height={250}>
             <LineChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
               <XAxis dataKey="month" stroke="#888" />
               <YAxis stroke="#888" />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1E1E1E', border: '1px solid #333', borderRadius: '8px' }}
-                labelStyle={{ color: '#E0E0E0' }}
               />
               <Legend />
-              <Line type="monotone" dataKey="Ransomware" stroke="#FF3131" strokeWidth={2} dot={{ fill: '#FF3131' }} />
-              <Line type="monotone" dataKey="Trojan" stroke="#FFA500" strokeWidth={2} dot={{ fill: '#FFA500' }} />
+              <Line name="Otros/Ransom" type="monotone" dataKey="Ransomware" stroke="#FF3131" strokeWidth={2} />
+              <Line name="Troyanos" type="monotone" dataKey="Trojan" stroke="#FFA500" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Recent Analysis Table */}
+        {/* Tabla de Historial */}
         <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Recent Analysis</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">File Name</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Hash</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Date</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Status</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">ML Score</th>
-                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {analysisHistory.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="border-b border-border hover:bg-secondary/50 transition-colors cursor-pointer"
-                    onClick={() => navigate('/analysis')}
-                  >
-                    <td className="py-3 px-4">
-                      <span className="text-foreground font-mono text-sm">{item.name}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-muted-foreground font-mono text-sm">{item.hash}</span>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{item.date}</td>
-                    <td className="py-3 px-4">
-                      <span className={`text-sm font-semibold ${getStatusColor(item.status)}`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`text-sm font-bold ${getScoreColor(item.score)}`}>
-                        {item.score}%
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <button className="text-primary hover:text-primary/80 flex items-center gap-1 text-sm">
-                        <Eye className="w-4 h-4" />
-                        View
-                      </button>
-                    </td>
+          <h2 className="text-lg font-semibold mb-4">Historial de Análisis</h2>
+          
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Cargando historial...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Nombre del Archivo</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">SHA-256</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Fecha de Subida</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Resultado</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Confianza</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Acción</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {history.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-border hover:bg-secondary/30 transition-colors group cursor-pointer"
+                      onClick={() => navigate(`/analysis/${item.id}`)}
+                    >
+                      <td className="py-4 px-4">
+                        <span className="font-mono text-sm font-medium">{item.nombre_fichero_personalizado}</span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-muted-foreground font-mono text-xs">{item.hash_sha256.substring(0, 16)}...</span>
+                      </td>
+                      <td className="py-4 px-4 text-sm text-muted-foreground">{item.fecha_subida}</td>
+                      <td className="py-4 px-4">
+                        <span className={`text-sm font-bold ${getStatusColor(item.resultado_clase)}`}>
+                          {item.resultado_clase}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className={`text-sm font-bold ${getScoreColor(item.confianza_global)}`}>
+                          {(item.confianza_global * 100).toFixed(2)}%
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <button 
+                          className="text-primary hover:text-primary/80 flex items-center gap-1 text-sm font-semibold transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/analysis/${item.id}`);
+                          }}
+                        >
+                          <Eye className="w-4 h-4" /> Ver
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!isLoading && history.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="text-center py-10 text-muted-foreground">
+                        No se encontraron registros de análisis.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
