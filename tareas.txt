@@ -9,9 +9,8 @@ Añadir ver código desensamblado a la página de analisis
 
 
 Crear endpoints de las cosas que son necesarias:
-    - Ver estadísticas de usuario
-    - Get estadísitcas admin
 
+    - Get estadísitcas admin
     - DELETE de un fichero en concreto para el usuario. Borra solo la relación en subida pero no el análisis del fichero.
     - Ranking de funciones más peligrosas
     - POST /api/check-hash/ Un endpoint ligero que reciba solo un Hash. Si ya existe en la base de datos, devuelve el resultado al instante; si no, responde que es necesario subir el archivo para un análisis completo.
