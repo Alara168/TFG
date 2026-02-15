@@ -14,16 +14,14 @@ interface AnalysisRecord {
   fecha_subida: string;
 }
 
-// PALETA DE COLORES GLOBAL DEFINIDA
 const MALWARE_COLORS = {
-  benigno: '#22c55e',          // Verde
-  ransomware: '#ef4444',       // Rojo (Otros/Ransom)
-  financiero: '#f97316',       // Naranja
-  sistema: '#eab308',          // Amarillo (Herramientas/Sistema)
-  intrusion: '#a855f7',        // Morado
+  benigno: '#22c55e',
+  ransomware: '#ef4444',
+  financiero: '#f97316',
+  sistema: '#eab308',
+  intrusion: '#a855f7',
 };
 
-// DATOS FICTICIOS CON TODAS LAS CLASES DE AMENAZA
 const trendData = [
   { month: 'Ene', Ransom: 12, Financiero: 8, Sistema: 5, Intrusion: 3, Benigno: 40 },
   { month: 'Feb', Ransom: 19, Financiero: 14, Sistema: 7, Intrusion: 5, Benigno: 35 },
@@ -52,17 +50,18 @@ export function UserDashboard() {
         setIsLoading(false);
       }
     };
-
     fetchHistorial();
   }, []);
 
-  // LÓGICA DE COLORES PARA LA TABLA
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, confidence: number) => {
+    // Si la confianza es menor al 40%, siempre es color Benigno (Verde)
+    if (confidence < 0.4) return 'text-[#22c55e]';
+
     const s = status.toLowerCase();
     if (s.includes('benigno')) return 'text-[#22c55e]';
     if (s.includes('ransom')) return 'text-[#ef4444]';
     if (s.includes('financiero')) return 'text-[#f97316]';
-    if (s.includes('herramientas') || s.includes('sistema')) return 'text-[#eab308]'; // AMARILLO
+    if (s.includes('herramientas') || s.includes('sistema')) return 'text-[#eab308]';
     if (s.includes('intrusion')) return 'text-[#a855f7]';
     return 'text-destructive';
   };
@@ -76,7 +75,7 @@ export function UserDashboard() {
 
   const totalFiles = history.length;
   const highRiskCount = history.filter(item => 
-    !item.resultado_clase.toLowerCase().includes('benigno')
+    item.confianza_global >= 0.4 && !item.resultado_clase.toLowerCase().includes('benigno')
   ).length;
 
   return (
@@ -132,7 +131,7 @@ export function UserDashboard() {
           </div>
         </div>
 
-        {/* Gráfico con todas las clases y paleta definida */}
+        {/* Gráfico */}
         <div className="bg-card border border-border rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">Tendencias de Amenazas</h2>
           <ResponsiveContainer width="100%" height={250}>
@@ -190,8 +189,9 @@ export function UserDashboard() {
                       </td>
                       <td className="py-4 px-4 text-sm text-muted-foreground">{item.fecha_subida}</td>
                       <td className="py-4 px-4">
-                        <span className={`text-sm font-bold ${getStatusColor(item.resultado_clase)}`}>
-                          {item.resultado_clase}
+                        <span className={`text-sm font-bold ${getStatusColor(item.resultado_clase, item.confianza_global)}`}>
+                          {/* LÓGICA SOLICITADA: Si confianza < 40%, mostrar Benigno */}
+                          {item.confianza_global < 0.4 ? "Benigno" : item.resultado_clase}
                         </span>
                       </td>
                       <td className="py-4 px-4">

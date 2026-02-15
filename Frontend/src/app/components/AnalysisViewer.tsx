@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Filter, Loader2, Cpu, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Filter, Loader2, Cpu, HelpCircle, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../services/api.client';
 
 const DESCRIPCIONES_CLASES: Record<string, string> = {
@@ -11,6 +12,40 @@ const DESCRIPCIONES_CLASES: Record<string, string> = {
   "Herramientas/Sistema": "Herramientas de administración o de hacking que pueden ser usadas para ataques o pruebas de penetración."
 };
 
+// Componente Tooltip Estilo Post-it
+function PostItTooltip({ text, anchorRect }: { text: string, anchorRect: DOMRect | null }) {
+  if (!anchorRect) return null;
+
+  return createPortal(
+    <div 
+      style={{ 
+        position: 'fixed', 
+        top: anchorRect.top, 
+        left: anchorRect.right + 20,
+        zIndex: 9999,
+        // Amarillo pálido tipo post-it técnico
+        backgroundColor: '#fef3c7', 
+      }}
+      className="w-64 p-4 rounded-sm shadow-[5px_5px_15px_rgba(0,0,0,0.3)] border-l-4 border-yellow-500 animate-in fade-in slide-in-from-left-2 duration-200"
+    >
+      <div className="flex items-center gap-2 mb-2 border-b border-yellow-900/10 pb-1">
+        <span className="text-[10px] font-black uppercase tracking-widest text-yellow-800">Nota</span>
+      </div>
+      <p className="text-[12px] leading-snug text-yellow-950 font-medium">
+        {text}
+      </p>
+      {/* Flecha Post-it */}
+      <div 
+        className="absolute top-4 -left-2 w-0 h-0 
+        border-t-[6px] border-t-transparent 
+        border-r-[8px] border-r-yellow-500 
+        border-b-[6px] border-b-transparent" 
+      />
+    </div>,
+    document.body
+  );
+}
+
 export function AnalysisViewer() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -20,8 +55,10 @@ export function AnalysisViewer() {
   const [isLoading, setIsLoading] = useState(true);
   const [attentionFilter, setAttentionFilter] = useState(0.01);
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
-
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  // Estado para el hover
+  const [hoveredClass, setHoveredClass] = useState<{ name: string, rect: DOMRect } | null>(null);
 
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
@@ -29,14 +66,26 @@ export function AnalysisViewer() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // --- NUEVA LÓGICA DE ESCALA MÁS DISCRETA ---
-  // El factor ahora es mucho más sutil (rango de 0.85 a 1.05)
   const scaleFactor = useMemo(() => {
     const base = dimensions.width / 1920;
     return Math.max(0.85, Math.min(base * 1.05, 1.05));
   }, [dimensions.width]);
   
   const getFontSize = (size: number) => `${size * scaleFactor}px`;
+
+  const verdict = useMemo(() => {
+    if (!analysis?.probabilidades_json) return { label: "Analizando...", color: "text-white", isMalware: false };
+    const malwareProbs = Object.entries(analysis.probabilidades_json)
+      .filter(([name]) => name !== "Benigno")
+      .map(([name, value]: any) => ({ name, value }));
+
+    const topThreat = malwareProbs.reduce((prev, current) => (prev.value > current.value) ? prev : current);
+
+    if (topThreat.value >= 0.4) {
+      return { label: topThreat.name, color: "text-red-500", isMalware: true };
+    }
+    return { label: "Benigno", color: "text-primary", isMalware: false };
+  }, [analysis]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -69,7 +118,7 @@ export function AnalysisViewer() {
   }, [availableWidth]);
 
   const visibleNodes = graphData.nodes.filter(n => n.atencion_score >= attentionFilter);
-  const nodeRadius = 38 * scaleFactor; // Radio más pequeño y elegante
+  const nodeRadius = 38 * scaleFactor;
   const COLUMN_SPACING = availableWidth / (columns + 0.5);
   const ROW_SPACING = 180 * scaleFactor;
 
@@ -108,7 +157,6 @@ export function AnalysisViewer() {
 
   return (
     <div className="h-[100dvh] w-screen bg-[#050505] flex flex-col text-white overflow-hidden p-0 m-0">
-      {/* HEADER */}
       <header className="bg-card/40 border-b border-white/10 px-8 py-4 flex items-center justify-between z-40 shrink-0">
         <div className="flex items-center gap-5">
           <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-white/10 rounded-lg transition-all">
@@ -124,24 +172,39 @@ export function AnalysisViewer() {
           </div>
         </div>
         <div className="flex items-center gap-6">
-            <span style={{ fontSize: getFontSize(9) }} className="font-bold text-white/40 uppercase tracking-widest">Confianza</span>
-            <span style={{ fontSize: getFontSize(32) }} className="font-black text-primary">
-              {(analysis?.confianza_global * 100).toFixed(1)}%
-            </span>
+            <div className="text-right mr-4">
+               <span style={{ fontSize: getFontSize(9) }} className="font-bold text-white/40 uppercase tracking-widest block">Veredicto Final</span>
+               <span style={{ fontSize: getFontSize(24) }} className={`font-black uppercase tracking-tighter ${verdict.color}`}>
+                 {verdict.label}
+               </span>
+            </div>
+            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
+                {verdict.isMalware ? <AlertTriangle className="text-red-500 w-5 h-5" /> : <ShieldCheck className="text-primary w-5 h-5" />}
+                <span style={{ fontSize: getFontSize(32) }} className={`font-black ${verdict.color}`}>
+                  {(analysis?.confianza_global * 100).toFixed(1)}%
+                </span>
+            </div>
         </div>
       </header>
 
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">
         {/* PANEL IZQUIERDO */}
         <aside className="w-64 bg-card/20 border-r border-white/10 p-5 flex flex-col z-30 shrink-0 overflow-y-auto scrollbar-hide">
           <h3 style={{ fontSize: getFontSize(14) }} className="font-black uppercase tracking-widest mb-8 text-white/60">Análisis</h3>
           <div className="space-y-6 pb-4">
-            {analysis?.probabilidades_json && Object.entries(analysis.probabilidades_json).map(([name, value]: any) => (
-              <div key={name} className="group relative">
+            {analysis?.probabilidades_json && Object.entries(analysis.probabilidades_json)
+              .filter(([name]) => name !== "Benigno")
+              .map(([name, value]: any) => (
+              <div 
+                key={name} 
+                className="group relative cursor-help"
+                onMouseEnter={(e) => setHoveredClass({ name, rect: e.currentTarget.getBoundingClientRect() })}
+                onMouseLeave={() => setHoveredClass(null)}
+              >
                 <div className="flex justify-between items-end mb-1.5">
                   <div className="flex items-center gap-2">
                     <span style={{ fontSize: getFontSize(11) }} className="font-black uppercase text-white/80">{name}</span>
-                    <HelpCircle style={{ width: getFontSize(13), height: getFontSize(13) }} className="text-white/20 hover:text-primary cursor-help" />
+                    <HelpCircle style={{ width: getFontSize(13), height: getFontSize(13) }} className="text-white/20 group-hover:text-primary transition-colors" />
                   </div>
                   <span style={{ fontSize: getFontSize(16) }} className="font-mono font-black text-white">{(value * 100).toFixed(1)}%</span>
                 </div>
@@ -152,6 +215,14 @@ export function AnalysisViewer() {
             ))}
           </div>
         </aside>
+
+        {/* TOOLTIP PORTAL ESTILO POST-IT */}
+        {hoveredClass && (
+          <PostItTooltip 
+            text={DESCRIPCIONES_CLASES[hoveredClass.name] || ""} 
+            anchorRect={hoveredClass.rect} 
+          />
+        )}
 
         {/* CONTENEDOR DEL GRAFO */}
         <main className="flex-1 relative bg-[radial-gradient(circle_at_50%_50%,_#0a0a0a_0%,_#050505_100%)] overflow-y-auto overflow-x-hidden scrollbar-hide flex flex-col items-center">
@@ -239,7 +310,8 @@ export function AnalysisViewer() {
               </div>
               <div className="space-y-4">
                 <span style={{ fontSize: getFontSize(9) }} className="text-white/40 font-black uppercase tracking-widest block border-b border-white/5 pb-1.5">Predicciones</span>
-                {selectedDetail?.prediccion_especifica && Object.entries(selectedDetail.prediccion_especifica).map(([clase, val]: any) => (
+                {selectedDetail?.prediccion_especifica && Object.entries(selectedDetail.prediccion_especifica)
+                  .map(([clase, val]: any) => (
                   <div key={clase} className="p-3 bg-white/5 rounded-xl border border-white/5">
                     <div className="flex justify-between font-black mb-1.5 uppercase" style={{ fontSize: getFontSize(10) }}>
                       <span>{clase}</span>
