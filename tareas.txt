@@ -1,10 +1,13 @@
 Añadir la url con los datos necesarios que haya que pasar.
 
-Revisar los warnings de react
-
 Priorizar la página de ver análisis para que sea dinámica y dibuje todo perfectamente.
 Hacer más análisis para poder realizar el gráfico de tendencias
 Poner la lógica de que si recibe un 401 se llame a la función logout
+Añadir un botón de ver contraseña en el login
+Crear registrar usuario. Que compruebe que tiene formato de correo electronico.
+Añadr un botón de logout
+Añadir ver código desensamblado a la página de analisis
+
 
 Crear endpoints de las cosas que son necesarias:
     - Ver estadísticas de usuario
@@ -18,9 +21,12 @@ Crear endpoints de las cosas que son necesarias:
     - Exportar informe técnico en PDF
 
     - Añadir encriptamiento a las contraseñas para que se envíen y almacenen encriptadas
+    - Optimizar las llamadas de analisis y grafo para no enviar varias veces la misma información. Podría juntarse en uno solo?
     
 En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
 la velocidad dependa únicamente del modelo de IA. Se puede implementar hilos para aumentar la velocidad?
 Si fuese la única forma poner que el desensamblado se haga con código compilado o algo así.
+
+Hacer responsive todo
 
 Revisar los TODO

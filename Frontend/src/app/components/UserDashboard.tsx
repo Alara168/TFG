@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { FileText, AlertTriangle, Clock, Upload, Eye, Loader2 } from 'lucide-react';
-import { apiClient } from '../services/api.client'; // Importamos el nuevo cliente
+import { apiClient } from '../services/api.client';
 
 interface AnalysisRecord {
   id: number;
@@ -14,13 +14,23 @@ interface AnalysisRecord {
   fecha_subida: string;
 }
 
+// PALETA DE COLORES GLOBAL DEFINIDA
+const MALWARE_COLORS = {
+  benigno: '#22c55e',          // Verde
+  ransomware: '#ef4444',       // Rojo (Otros/Ransom)
+  financiero: '#f97316',       // Naranja
+  sistema: '#eab308',          // Amarillo (Herramientas/Sistema)
+  intrusion: '#a855f7',        // Morado
+};
+
+// DATOS FICTICIOS CON TODAS LAS CLASES DE AMENAZA
 const trendData = [
-  { month: 'Ene', Ransomware: 12, Trojan: 8 },
-  { month: 'Feb', Ransomware: 19, Trojan: 14 },
-  { month: 'Mar', Ransomware: 15, Trojan: 18 },
-  { month: 'Abr', Ransomware: 25, Trojan: 12 },
-  { month: 'May', Ransomware: 22, Trojan: 20 },
-  { month: 'Jun', Ransomware: 30, Trojan: 25 },
+  { month: 'Ene', Ransom: 12, Financiero: 8, Sistema: 5, Intrusion: 3, Benigno: 40 },
+  { month: 'Feb', Ransom: 19, Financiero: 14, Sistema: 7, Intrusion: 5, Benigno: 35 },
+  { month: 'Mar', Ransom: 15, Financiero: 18, Sistema: 12, Intrusion: 8, Benigno: 42 },
+  { month: 'Abr', Ransom: 25, Financiero: 12, Sistema: 10, Intrusion: 12, Benigno: 38 },
+  { month: 'May', Ransom: 22, Financiero: 20, Sistema: 15, Intrusion: 10, Benigno: 45 },
+  { month: 'Jun', Ransom: 30, Financiero: 25, Sistema: 18, Intrusion: 15, Benigno: 30 },
 ];
 
 export function UserDashboard() {
@@ -31,16 +41,12 @@ export function UserDashboard() {
   useEffect(() => {
     const fetchHistorial = async () => {
       try {
-        // Usamos el apiClient. No hace falta pasar tokens ni Content-Type, 
-        // el cliente lo pone solo.
         const response = await apiClient('/historial/');
-
         if (response.ok) {
           const data = await response.json();
           setHistory(data);
         }
       } catch (error) {
-        // Si el error es 401, apiClient ya llamó a logout()
         console.error('Error al obtener el historial:', error);
       } finally {
         setIsLoading(false);
@@ -50,8 +56,14 @@ export function UserDashboard() {
     fetchHistorial();
   }, []);
 
+  // LÓGICA DE COLORES PARA LA TABLA
   const getStatusColor = (status: string) => {
-    if (status.toLowerCase().includes('benigno')) return 'text-primary';
+    const s = status.toLowerCase();
+    if (s.includes('benigno')) return 'text-[#22c55e]';
+    if (s.includes('ransom')) return 'text-[#ef4444]';
+    if (s.includes('financiero')) return 'text-[#f97316]';
+    if (s.includes('herramientas') || s.includes('sistema')) return 'text-[#eab308]'; // AMARILLO
+    if (s.includes('intrusion')) return 'text-[#a855f7]';
     return 'text-destructive';
   };
 
@@ -120,7 +132,7 @@ export function UserDashboard() {
           </div>
         </div>
 
-        {/* Gráfico */}
+        {/* Gráfico con todas las clases y paleta definida */}
         <div className="bg-card border border-border rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">Tendencias de Amenazas</h2>
           <ResponsiveContainer width="100%" height={250}>
@@ -132,8 +144,11 @@ export function UserDashboard() {
                 contentStyle={{ backgroundColor: '#1E1E1E', border: '1px solid #333', borderRadius: '8px' }}
               />
               <Legend />
-              <Line name="Otros/Ransom" type="monotone" dataKey="Ransomware" stroke="#FF3131" strokeWidth={2} />
-              <Line name="Troyanos" type="monotone" dataKey="Trojan" stroke="#FFA500" strokeWidth={2} />
+              <Line name="Otros/Ransom" type="monotone" dataKey="Ransom" stroke={MALWARE_COLORS.ransomware} strokeWidth={2} dot={{ r: 4 }} />
+              <Line name="Financiero" type="monotone" dataKey="Financiero" stroke={MALWARE_COLORS.financiero} strokeWidth={2} dot={{ r: 4 }} />
+              <Line name="Herramientas/Sistema" type="monotone" dataKey="Sistema" stroke={MALWARE_COLORS.sistema} strokeWidth={2} dot={{ r: 4 }} />
+              <Line name="Intrusión" type="monotone" dataKey="Intrusion" stroke={MALWARE_COLORS.intrusion} strokeWidth={2} dot={{ r: 4 }} />
+              <Line name="Benigno" type="monotone" dataKey="Benigno" stroke={MALWARE_COLORS.benigno} strokeWidth={2} strokeDasharray="5 5" dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
