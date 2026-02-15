@@ -21,6 +21,23 @@ export function AnalysisViewer() {
   const [attentionFilter, setAttentionFilter] = useState(0.01);
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
 
+  const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // --- NUEVA LÓGICA DE ESCALA MÁS DISCRETA ---
+  // El factor ahora es mucho más sutil (rango de 0.85 a 1.05)
+  const scaleFactor = useMemo(() => {
+    const base = dimensions.width / 1920;
+    return Math.max(0.85, Math.min(base * 1.05, 1.05));
+  }, [dimensions.width]);
+  
+  const getFontSize = (size: number) => `${size * scaleFactor}px`;
+
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
@@ -38,14 +55,6 @@ export function AnalysisViewer() {
     fetchData();
   }, [id]);
 
-  const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
-
-  useEffect(() => {
-    const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   const availableWidth = useMemo(() => {
     let w = dimensions.width - 288; 
     if (selectedAddress) w -= 320;  
@@ -60,9 +69,9 @@ export function AnalysisViewer() {
   }, [availableWidth]);
 
   const visibleNodes = graphData.nodes.filter(n => n.atencion_score >= attentionFilter);
-  const nodeRadius = 45; 
+  const nodeRadius = 38 * scaleFactor; // Radio más pequeño y elegante
   const COLUMN_SPACING = availableWidth / (columns + 0.5);
-  const ROW_SPACING = 220;
+  const ROW_SPACING = 180 * scaleFactor;
 
   const nodePositions = useMemo(() => {
     const positions = new Map();
@@ -72,16 +81,16 @@ export function AnalysisViewer() {
       const x = (row % 2 === 0) 
         ? (col * COLUMN_SPACING) + (COLUMN_SPACING/2)
         : ((columns - 1 - col) * COLUMN_SPACING) + (COLUMN_SPACING/2);
-      const y = (row * ROW_SPACING) + 120;
+      const y = (row * ROW_SPACING) + 100;
       positions.set(node.id, { x, y });
     });
     return positions;
-  }, [visibleNodes, columns, COLUMN_SPACING]);
+  }, [visibleNodes, columns, COLUMN_SPACING, ROW_SPACING]);
 
   const svgHeight = useMemo(() => {
     const rows = Math.ceil(visibleNodes.length / columns);
-    return (rows * ROW_SPACING) + 150;
-  }, [visibleNodes.length, columns]);
+    return (rows * ROW_SPACING) + 120;
+  }, [visibleNodes.length, columns, ROW_SPACING]);
 
   const getNodeColor = (score: number) => {
     if (score > 0.07) return "#ef4444"; 
@@ -93,82 +102,77 @@ export function AnalysisViewer() {
 
   if (isLoading) return (
     <div className="h-screen bg-[#050505] flex items-center justify-center font-mono text-primary">
-      <Loader2 className="w-12 h-12 animate-spin" />
+      <Loader2 className="w-10 h-10 animate-spin" />
     </div>
   );
 
   return (
-    <div className="h-[100dvh] w-screen bg-[#050505] flex flex-col text-white overflow-hidden p-0 m-0 border-none">
+    <div className="h-[100dvh] w-screen bg-[#050505] flex flex-col text-white overflow-hidden p-0 m-0">
       {/* HEADER */}
-      <header className="bg-card/40 border-b border-white/10 px-8 py-5 flex items-center justify-between z-40 shrink-0">
-        <div className="flex items-center gap-6">
+      <header className="bg-card/40 border-b border-white/10 px-8 py-4 flex items-center justify-between z-40 shrink-0">
+        <div className="flex items-center gap-5">
           <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-white/10 rounded-lg transition-all">
-            <ArrowLeft className="w-7 h-7" />
+            <ArrowLeft style={{ width: getFontSize(22), height: getFontSize(22) }} />
           </button>
           <div>
-            <h1 className="text-2xl font-black tracking-tight uppercase">{analysis?.nombre_fichero}</h1>
-            <p className="text-xs text-white/40 font-mono">{analysis?.hash_sha256}</p>
+            <h1 style={{ fontSize: getFontSize(18) }} className="font-black tracking-tight uppercase">
+              {analysis?.nombre_fichero}
+            </h1>
+            <p style={{ fontSize: getFontSize(10) }} className="text-white/40 font-mono tracking-tighter">
+              {analysis?.hash_sha256}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-6">
-            <span className="text-xs font-bold text-white/40 uppercase tracking-widest">Confianza Global</span>
-            <span className="text-4xl font-black text-primary">{(analysis?.confianza_global * 100).toFixed(1)}%</span>
+            <span style={{ fontSize: getFontSize(9) }} className="font-bold text-white/40 uppercase tracking-widest">Confianza</span>
+            <span style={{ fontSize: getFontSize(32) }} className="font-black text-primary">
+              {(analysis?.confianza_global * 100).toFixed(1)}%
+            </span>
         </div>
       </header>
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* PANEL IZQUIERDO */}
-        <aside className="w-72 bg-card/20 border-r border-white/10 p-6 flex flex-col z-30 shrink-0 overflow-y-auto scrollbar-hide">
-          <h3 className="text-lg font-black uppercase tracking-tighter mb-10 text-white/80">Resultado Análisis</h3>
-          <div className="space-y-8 pb-4">
+        <aside className="w-64 bg-card/20 border-r border-white/10 p-5 flex flex-col z-30 shrink-0 overflow-y-auto scrollbar-hide">
+          <h3 style={{ fontSize: getFontSize(14) }} className="font-black uppercase tracking-widest mb-8 text-white/60">Análisis</h3>
+          <div className="space-y-6 pb-4">
             {analysis?.probabilidades_json && Object.entries(analysis.probabilidades_json).map(([name, value]: any) => (
               <div key={name} className="group relative">
-                <div className="flex justify-between items-end mb-2">
+                <div className="flex justify-between items-end mb-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-black uppercase text-white/90">{name}</span>
-                    <div className="static">
-                      <HelpCircle className="w-4 h-4 text-white/20 hover:text-primary cursor-help" />
-                      <div className="fixed left-[290px] mt-[-20px] w-72 p-5 bg-white text-black text-sm rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.7)] opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-[100] font-medium border border-black/5">
-                        <div className="font-black mb-2 border-b border-black/10 pb-1 uppercase text-xs tracking-widest text-primary">{name}</div>
-                        {DESCRIPCIONES_CLASES[name] || "Descripción técnica no disponible."}
-                      </div>
-                    </div>
+                    <span style={{ fontSize: getFontSize(11) }} className="font-black uppercase text-white/80">{name}</span>
+                    <HelpCircle style={{ width: getFontSize(13), height: getFontSize(13) }} className="text-white/20 hover:text-primary cursor-help" />
                   </div>
-                  <span className="text-2xl font-mono font-black">{(value * 100).toFixed(1)}%</span>
+                  <span style={{ fontSize: getFontSize(16) }} className="font-mono font-black text-white">{(value * 100).toFixed(1)}%</span>
                 </div>
-                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
-                  <div className="h-full bg-primary transition-all duration-700 shadow-[0_0_10px_#22c55e]" style={{ width: `${value * 100}%` }} />
+                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div className="h-full bg-primary/80 transition-all duration-700" style={{ width: `${value * 100}%` }} />
                 </div>
               </div>
             ))}
           </div>
         </aside>
 
-        {/* CONTENEDOR DEL GRAFO - TOTALMENTE CONTROLADO */}
-        <main className="flex-1 relative bg-[radial-gradient(circle_at_50%_50%,_#111_0%,_#050505_100%)] overflow-y-auto overflow-x-hidden scrollbar-hide p-0 flex flex-col items-center min-h-0">
-          <div className="sticky top-6 left-6 z-20 self-start w-fit bg-[#111]/90 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl ml-6 shrink-0">
-            <div className="flex items-center gap-4">
-              <Filter className="w-5 h-5 text-primary" />
+        {/* CONTENEDOR DEL GRAFO */}
+        <main className="flex-1 relative bg-[radial-gradient(circle_at_50%_50%,_#0a0a0a_0%,_#050505_100%)] overflow-y-auto overflow-x-hidden scrollbar-hide flex flex-col items-center">
+          <div className="sticky top-4 left-4 z-20 self-start w-fit bg-[#111]/80 backdrop-blur-md border border-white/10 p-4 rounded-xl ml-4 shrink-0">
+            <div className="flex items-center gap-3">
+              <Filter style={{ width: getFontSize(16), height: getFontSize(16) }} className="text-primary" />
               <input 
                 type="range" min="0.005" max="0.1" step="0.005" 
                 value={attentionFilter} 
                 onChange={(e) => setAttentionFilter(parseFloat(e.target.value))}
-                className="w-40 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                className="w-32 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
               />
-              <span className="text-xl font-black font-mono text-primary">{(attentionFilter).toFixed(3)}</span>
+              <span style={{ fontSize: getFontSize(14) }} className="font-black font-mono text-primary">{(attentionFilter).toFixed(3)}</span>
             </div>
           </div>
 
-          <div className="flex-1 w-full min-h-0 flex items-start justify-center">
-            <svg 
-              width={availableWidth} 
-              height={svgHeight} 
-              className="block overflow-visible shrink-0 transition-all duration-500 m-0 p-0"
-              style={{ minHeight: svgHeight }}
-            >
+          <div className="flex-1 w-full flex items-start justify-center py-10">
+            <svg width={availableWidth} height={svgHeight} className="overflow-visible">
               <defs>
-                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX={nodeRadius + 10} refY="3.5" orient="auto">
-                  <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,0.4)" />
+                <marker id="arrowhead" markerWidth="8" markerHeight="6" refX={nodeRadius + 8} refY="3" orient="auto">
+                  <polygon points="0 0, 8 3, 0 6" fill="rgba(255,255,255,0.2)" />
                 </marker>
               </defs>
 
@@ -179,8 +183,7 @@ export function AnalysisViewer() {
                 return (
                   <line 
                     key={`edge-${i}`} x1={start.x} y1={start.y} x2={end.x} y2={end.y} 
-                    stroke="rgba(255,255,255,0.15)" strokeWidth="3" markerEnd="url(#arrowhead)" 
-                    className="transition-all duration-500"
+                    stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" markerEnd="url(#arrowhead)" 
                   />
                 );
               })}
@@ -189,22 +192,25 @@ export function AnalysisViewer() {
                 const pos = nodePositions.get(node.id);
                 if (!pos) return null;
                 const isSelected = selectedAddress === node.id;
+                const cleanLabel = node.label.replace(/^func_/i, '');
                 
                 return (
                   <g key={node.id} transform={`translate(${pos.x}, ${pos.y})`} 
-                     onClick={() => setSelectedAddress(node.id)} className="cursor-pointer group transition-all duration-500">
+                     onClick={() => setSelectedAddress(node.id)} className="cursor-pointer group">
                     <circle 
                       r={nodeRadius} 
                       fill={getNodeColor(node.atencion_score)} 
-                      className="transition-all duration-300 group-hover:scale-110 group-hover:brightness-125"
-                      stroke={isSelected ? "#fff" : "rgba(255,255,255,0.15)"}
-                      strokeWidth={isSelected ? "5" : "2"}
+                      className="transition-all duration-300 group-hover:brightness-125"
+                      stroke={isSelected ? "#fff" : "rgba(255,255,255,0.1)"}
+                      strokeWidth={isSelected ? "3" : "1.5"}
                     />
-                    <text y="5" textAnchor="middle" fill="#fff" className="text-[12px] font-black font-mono pointer-events-none uppercase">
-                      {node.label.length > 10 ? node.label.substring(0, 8) + '..' : node.label}
+                    <text y="4" textAnchor="middle" fill="#fff" 
+                      style={{ fontSize: getFontSize(10) }} className="font-black font-mono pointer-events-none uppercase">
+                      {cleanLabel.length > 8 ? cleanLabel.substring(0, 6) + '..' : cleanLabel}
                     </text>
-                    <text y={nodeRadius + 25} textAnchor="middle" fill={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} className="text-[11px] font-bold font-mono uppercase tracking-tighter">
-                      {node.id.substring(2, 12)}
+                    <text y={nodeRadius + 18} textAnchor="middle" fill={isSelected ? "#fff" : "rgba(255,255,255,0.4)"} 
+                      style={{ fontSize: getFontSize(9) }} className="font-bold font-mono uppercase tracking-tight">
+                      {node.id.substring(2, 10)}
                     </text>
                   </g>
                 );
@@ -215,32 +221,32 @@ export function AnalysisViewer() {
 
         {/* INSPECTOR DERECHO */}
         {selectedAddress && (
-          <aside className="w-80 bg-card border-l border-white/10 p-8 z-40 animate-in slide-in-from-right shrink-0 overflow-y-auto scrollbar-hide">
-            <div className="flex items-center justify-between mb-10">
-              <h3 className="flex items-center gap-3 text-xl font-black uppercase tracking-tighter">
-                <Cpu className="w-6 h-6 text-primary" /> Detalles
+          <aside className="w-72 bg-card border-l border-white/10 p-6 z-40 shrink-0 overflow-y-auto scrollbar-hide">
+            <div className="flex items-center justify-between mb-8">
+              <h3 style={{ fontSize: getFontSize(16) }} className="flex items-center gap-2 font-black uppercase tracking-tight">
+                <Cpu style={{ width: getFontSize(18), height: getFontSize(18) }} className="text-primary" /> Detalles
               </h3>
-              <button onClick={() => setSelectedAddress(null)} className="p-2 hover:bg-white/10 rounded-full text-white/40 hover:text-white">✕</button>
+              <button onClick={() => setSelectedAddress(null)} className="text-white/40 hover:text-white">✕</button>
             </div>
-            <div className="space-y-10 pb-6">
-              <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                <span className="text-[10px] text-primary font-black uppercase tracking-widest block mb-2">Memoria</span>
-                <code className="text-base font-mono break-all leading-tight">{selectedAddress}</code>
+            <div className="space-y-8">
+              <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+                <span style={{ fontSize: getFontSize(9) }} className="text-primary font-black uppercase tracking-widest block mb-1.5">Dirección</span>
+                <code style={{ fontSize: getFontSize(13) }} className="font-mono break-all leading-none">{selectedAddress}</code>
               </div>
               <div>
-                <span className="text-[10px] text-white/40 font-black uppercase tracking-widest block mb-2">Atención IA</span>
-                <p className="text-5xl font-black tracking-tighter">{selectedDetail?.atencion_score.toFixed(5)}</p>
+                <span style={{ fontSize: getFontSize(9) }} className="text-white/40 font-black uppercase tracking-widest block mb-1">Atención</span>
+                <p style={{ fontSize: getFontSize(36) }} className="font-black tracking-tighter">{selectedDetail?.atencion_score.toFixed(5)}</p>
               </div>
-              <div className="space-y-5">
-                <span className="text-[10px] text-white/40 font-black uppercase tracking-widest block border-b border-white/5 pb-2">Probabilidades</span>
+              <div className="space-y-4">
+                <span style={{ fontSize: getFontSize(9) }} className="text-white/40 font-black uppercase tracking-widest block border-b border-white/5 pb-1.5">Predicciones</span>
                 {selectedDetail?.prediccion_especifica && Object.entries(selectedDetail.prediccion_especifica).map(([clase, val]: any) => (
-                  <div key={clase} className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                    <div className="flex justify-between text-xs font-black mb-2 uppercase">
+                  <div key={clase} className="p-3 bg-white/5 rounded-xl border border-white/5">
+                    <div className="flex justify-between font-black mb-1.5 uppercase" style={{ fontSize: getFontSize(10) }}>
                       <span>{clase}</span>
                       <span className="text-primary">{(val * 100).toFixed(1)}%</span>
                     </div>
-                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-primary/50" style={{ width: `${val * 100}%` }} />
+                    <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-primary/60" style={{ width: `${val * 100}%` }} />
                     </div>
                   </div>
                 ))}

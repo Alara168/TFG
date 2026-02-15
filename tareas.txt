@@ -1,11 +1,10 @@
 Añadir la url con los datos necesarios que haya que pasar.
 
-Priorizar la página de ver análisis para que sea dinámica y dibuje todo perfectamente.
 Hacer más análisis para poder realizar el gráfico de tendencias
 Poner la lógica de que si recibe un 401 se llame a la función logout
 Añadir un botón de ver contraseña en el login
 Crear registrar usuario. Que compruebe que tiene formato de correo electronico.
-Añadr un botón de logout
+Añadir un botón de logout
 Añadir ver código desensamblado a la página de analisis
 
 
