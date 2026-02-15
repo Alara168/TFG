@@ -19,7 +19,7 @@ import os
 NOMBRES_CLASES = ['Benigno', 'Financiero', 'Intrusion', 'Herramientas/Sistema', 'Otros/Ransom']
 
 # ==========================================
-# 1. DATASET CON OVERSAMPLING DE BAGS
+# 1. DATASET CON BALANCEO DE INSTANCIAS 1:1
 # ==========================================
 class MalwareMILDataset(Dataset):
     def __init__(self, csv_path, scaler=None):
@@ -27,34 +27,50 @@ class MalwareMILDataset(Dataset):
         print(f"[1/4] Cargando CSV: {csv_path}")
         df = pd.read_csv(csv_path)
         
-        # --- LÓGICA DE DOWNSAMPLING POR BAGS (MODIFICADA PARA BALANCEO 1:1 POR INSTANCIAS) ---
+        # --- LÓGICA DE DOWNSAMPLING POR INSTANCIAS (BENIGNO VS RESTO) ---
         hashes_finales = []
         benigno_id = 0
         
-        # Calculamos cuántas instancias (filas) hay de malware en total para igualar benignos
-        total_instancias_malware = len(df[df['malware'] != benigno_id])
-        print(f"[*] Total instancias de Malware detectadas: {total_instancias_malware}")
+        # 1. Calculamos cuántas funciones hay en TOTAL en las clases de malware (1, 2, 3, 4)
+        # Esto nos dará el objetivo exacto para la clase Benigno
+        df_malware_solo = df[df['malware'] != benigno_id]
+        # Aplicamos primero el límite a las clases de malware para saber el total real final
+        total_instancias_malware_objetivo = 0
         
-        print(f"[2/4] Aplicando downsampling dinámico...")
+        print(f"[*] Calculando presupuesto de instancias para balanceo...")
+        
+        # Calculamos cuántas funciones aportará cada clase de malware tras su propio límite
         for clase_id in sorted(df['malware'].unique()):
+            if clase_id == benigno_id: continue
+            
             df_clase = df[df['malware'] == clase_id]
-            
-            # Si es la clase benigna, el límite es la suma de todo el malware.
-            # Si es malware, mantenemos un límite alto (500k) para no recortar si no es necesario.
-            if clase_id == benigno_id:
-                limite_clase = total_instancias_malware
-            else:
-                limite_clase = 500000 
-            
             counts_per_hash = df_clase.groupby('binary_hash').size().reset_index(name='count')
-            counts_per_hash = counts_per_hash.sample(frac=1, random_state=42) 
+            counts_per_hash = counts_per_hash.sample(frac=1, random_state=42)
             counts_per_hash['cum_sum'] = counts_per_hash['count'].cumsum()
             
-            seleccionados = counts_per_hash[counts_per_hash['cum_sum'] <= limite_clase]['binary_hash'].tolist()
-            if not seleccionados and not counts_per_hash.empty:
-                seleccionados = [counts_per_hash.iloc[0]['binary_hash']]
-            hashes_finales.extend(seleccionados)
+            # Límite estándar de 500k para cada clase de malware
+            LIMITE_MALWARE = 500000
+            seleccion_malware = counts_per_hash[counts_per_hash['cum_sum'] <= LIMITE_MALWARE]
+            
+            # Sumamos lo que esta clase aportará al total
+            total_instancias_malware_objetivo += seleccion_malware['count'].sum()
+            hashes_finales.extend(seleccion_malware['binary_hash'].tolist())
+
+        print(f"[*] Objetivo de instancias Benignas: {total_instancias_malware_objetivo}")
+
+        # 2. Ahora aplicamos ese objetivo como límite estricto para la clase Benigno
+        df_benigno = df[df['malware'] == benigno_id]
+        counts_benigno = df_benigno.groupby('binary_hash').size().reset_index(name='count')
+        counts_benigno = counts_benigno.sample(frac=1, random_state=42)
+        counts_benigno['cum_sum'] = counts_benigno['count'].cumsum()
         
+        seleccion_benigno = counts_benigno[counts_benigno['cum_sum'] <= total_instancias_malware_objetivo]['binary_hash'].tolist()
+        if not seleccion_benigno and not counts_benigno.empty:
+            seleccion_benigno = [counts_benigno.iloc[0]['binary_hash']]
+        
+        hashes_finales.extend(seleccion_benigno)
+        
+        # Filtrado final del dataframe
         df = df[df['binary_hash'].isin(hashes_finales)].copy()
 
         # --- LÓGICA DE OVERSAMPLING (EQUILIBRADO DE BOLSAS) ---
@@ -63,7 +79,6 @@ class MalwareMILDataset(Dataset):
         temp_bag_names = list(self.bag_indices.keys())
         temp_labels = groups['malware'].first().values
 
-        # Calculamos la clase mayoritaria para igualar al resto
         clases, conteos = np.unique(temp_labels, return_counts=True)
         max_muestras = max(conteos)
         
@@ -195,7 +210,7 @@ def create_activation_video(model, feats, addrs, filename='activacion_neuronal.g
     print(f"(*) Video de activación guardado en {filename}")
 
 # ==========================================
-# 4. ENTRENAMIENTO MEJORADO
+# 4. ENTRENAMIENTO MEJORADO CON CV
 # ==========================================
 def entrenar(csv_path, k_folds=5):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -264,7 +279,7 @@ def entrenar(csv_path, k_folds=5):
     
     pbar_folds.close()
 
-    print("\n[+] Evaluando mejor modelo en el último conjunto de test...")
+    print("\n[+] Evaluando mejor modelo...")
     model.load_state_dict(torch.load(best_model_path))
     model.eval()
     
@@ -280,36 +295,14 @@ def entrenar(csv_path, k_folds=5):
     with open('estadisticas_modelo.txt', 'w') as f:
         f.write(report)
     print(f"\n{report}")
-    print("\n[+] Estadísticas guardadas en 'estadisticas_modelo.txt'")
 
-    # Inferencia de ejemplo
+    # Inferencia de ejemplo con video
     for i in range(min(2, len(test_idx))):
         ex_idx = test_idx[i]
         feats, label, addrs = dataset[ex_idx]
-        with torch.no_grad():
-            logits, A, _ = model(feats.to(device))
-            probs_f = torch.sigmoid(logits).detach().cpu().numpy()[0]
-            att = A.detach().cpu().numpy()[0]
-        
-        print(f"\n--- EJEMPLO {i+1}: {dataset.bag_names[ex_idx]} ---")
-        for n, p in zip(NOMBRES_CLASES, probs_f):
-            print(f"Fichero -> {n}: {p*100:.2f}%")
-
         if i == 0: create_activation_video(model, feats.to(device), addrs)
 
-        top_f = att.argsort()[-3:][::-1]
-        for f_idx in top_f:
-            with torch.no_grad():
-                h_l = model.feature_extractor(feats[f_idx].to(device).unsqueeze(0))
-                p_l = torch.sigmoid(model.classifier(h_l)).detach().cpu().numpy()[0]
-            addr_str = hex(int(addrs[f_idx])) if isinstance(addrs[f_idx], (int, np.integer)) else addrs[f_idx]
-            print(f"   Func {addr_str} (Atención {att[f_idx]:.3f}):")
-            for j, p_val in enumerate(p_l):
-                if p_val > 0.4: print(f"     - {NOMBRES_CLASES[j]}: {p_val*100:.2f}%")
-
 if __name__ == "__main__":
-    csv_file = "../Scrap/dataset_tfg_etiquetado_completo.csv"
+    csv_file = "../../Scrap/dataset_tfg_etiquetado_completo.csv"
     if os.path.exists(csv_file):
         entrenar(csv_file)
-    else:
-        print(f"Fichero no encontrado: {csv_file}")
