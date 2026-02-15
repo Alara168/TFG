@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, FileCode, Info, ArrowLeft, Play, Loader2 } from 'lucide-react';
-import { authService } from '../services/auth.service';
+import { apiClient } from '../services/api.client'; // Importamos el cliente
 
 export function UploadPage() {
   const navigate = useNavigate();
@@ -10,7 +10,6 @@ export function UploadPage() {
   const [enableYARA, setEnableYARA] = useState(false);
   const [enablePseudoLabel, setEnablePseudoLabel] = useState(false);
   
-  // Estados para manejar la petición
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,9 +18,11 @@ export function UploadPage() {
     setIsDragging(true);
   };
 
+
   const handleDragLeave = () => {
     setIsDragging(false);
   };
+
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -31,13 +32,13 @@ export function UploadPage() {
     }
   };
 
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
     }
   };
 
-  // --- LÓGICA DE ENVÍO AL BACKEND ---
   const handleAnalyze = async () => {
     if (!file) return;
 
@@ -50,26 +51,26 @@ export function UploadPage() {
     formData.append('enable_pseudo_label', String(enablePseudoLabel));
 
     try {
-      const token = authService.getToken();
-      const response = await fetch('http://localhost:8000/api/analizar/', {
+      // Usamos apiClient con POST y el cuerpo FormData
+      const response = await apiClient('/analizar/', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
         body: formData,
+        // IMPORTANTE: Aquí NO pasamos headers, el cliente ya pone el token
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Error en el análisis');
+        // Intentamos parsear el error del backend
+        const errorData = await response.json().catch(() => ({ detail: 'Error desconocido' }));
+        throw new Error(errorData.detail || 'Error en el servidor');
       }
 
       const analysisData = await response.json();
-      // Navegamos al ID del análisis devuelto por el backend
-      navigate(`/analysis/${analysisData.id}`, { state: { result: analysisData } });
+      navigate(`/analisis/${analysisData.id}`, { state: { result: analysisData } });
       
     } catch (err: any) {
-      setError(err.message);
+      if (err !== 'Unauthorized') { // Evitamos mostrar error si fue una redirección 401
+        setError(err.message);
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -84,7 +85,8 @@ export function UploadPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
+      {/* El resto del JSX se mantiene exactamente igual que lo tenías */}
       <header className="bg-card border-b border-border px-8 py-4">
         <div className="flex items-center gap-3">
           <button
@@ -98,7 +100,7 @@ export function UploadPage() {
               <FileCode className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Subida de Binarios</h1>
+              <h1 className="text-xl font-bold">Subida de Binarios</h1>
               <p className="text-xs text-muted-foreground">Análisis mediante Deep Learning</p>
             </div>
           </div>
@@ -106,7 +108,6 @@ export function UploadPage() {
       </header>
 
       <div className="p-8 max-w-4xl mx-auto space-y-8">
-        {/* Alerta de Error */}
         {error && (
           <div className="bg-destructive/10 border border-destructive/20 text-destructive p-4 rounded-lg text-sm">
             {error}
@@ -114,9 +115,13 @@ export function UploadPage() {
         )}
 
         <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            if (e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]);
+          }}
           className={`
             border-2 border-dashed rounded-lg p-12 text-center transition-all
             ${isDragging ? 'border-primary bg-primary/10' : 'border-border bg-card'}
@@ -126,13 +131,13 @@ export function UploadPage() {
             type="file"
             id="file-upload"
             className="hidden"
-            onChange={handleFileSelect}
+            onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])}
             accept=".exe,.dll,.bin,.elf,.so"
             disabled={isAnalyzing}
           />
           <label htmlFor="file-upload" className={`cursor-pointer block ${isAnalyzing && 'opacity-50 cursor-not-allowed'}`}>
             <Upload className={`w-16 h-16 mx-auto mb-4 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
-            <h3 className="text-lg font-semibold text-foreground mb-2">
+            <h3 className="text-lg font-semibold mb-2">
               {file ? file.name : 'Arrastre y suelte el archivo binario'}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
@@ -143,29 +148,29 @@ export function UploadPage() {
 
         {file && (
           <div className="bg-card border border-border rounded-lg p-6 space-y-4 shadow-sm">
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
               <Info className="w-5 h-5 text-primary" />
               Vista Previa de Metadatos
             </h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Tamaño del Archivo</p>
-                <p className="text-foreground font-mono">{formatFileSize(file.size)}</p>
+                <p className="font-mono">{formatFileSize(file.size)}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Arquitectura Detectada</p>
-                <p className="text-foreground font-mono">x86_64 / PE</p>
+                <p className="font-mono">x86_64 / PE</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Opciones Avanzadas */}
+        {/* Opciones Avanzadas (YARA y Pseudo-label) */}
         <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-foreground">Opciones Avanzadas</h2>
+          <h2 className="text-lg font-semibold">Opciones Avanzadas</h2>
           <div className="flex items-center justify-between py-3 border-b border-border">
             <div>
-              <p className="text-foreground font-medium">Escaneo YARA</p>
+              <p className="font-medium">Escaneo YARA</p>
               <p className="text-xs text-muted-foreground">Aplicar reglas de detección basadas en firmas</p>
             </div>
             <label className="relative inline-block w-12 h-6">
@@ -182,7 +187,7 @@ export function UploadPage() {
           </div>
           <div className="flex items-center justify-between py-3">
             <div>
-              <p className="text-foreground font-medium">Pseudo-etiquetado</p>
+              <p className="font-medium">Pseudo-etiquetado</p>
               <p className="text-xs text-muted-foreground">Activar modo de aprendizaje semi-supervisado</p>
             </div>
             <label className="relative inline-block w-12 h-6">

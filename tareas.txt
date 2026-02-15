@@ -4,7 +4,7 @@ Revisar los warnings de react
 
 Priorizar la página de ver análisis para que sea dinámica y dibuje todo perfectamente.
 Hacer más análisis para poder realizar el gráfico de tendencias
-Poner en español los textos
+Poner la lógica de que si recibe un 401 se llame a la función logout
 
 Crear endpoints de las cosas que son necesarias:
     - Ver estadísticas de usuario

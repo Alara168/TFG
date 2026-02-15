@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { FileText, AlertTriangle, Clock, Upload, Eye, Loader2 } from 'lucide-react';
+import { apiClient } from '../services/api.client'; // Importamos el nuevo cliente
 
 interface AnalysisRecord {
   id: number;
@@ -30,20 +31,16 @@ export function UserDashboard() {
   useEffect(() => {
     const fetchHistorial = async () => {
       try {
-        const token = localStorage.getItem('access_token'); 
-        const response = await fetch('http://localhost:8000/api/historial/', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        // Usamos el apiClient. No hace falta pasar tokens ni Content-Type, 
+        // el cliente lo pone solo.
+        const response = await apiClient('/historial/');
 
         if (response.ok) {
           const data = await response.json();
           setHistory(data);
         }
       } catch (error) {
+        // Si el error es 401, apiClient ya llamó a logout()
         console.error('Error al obtener el historial:', error);
       } finally {
         setIsLoading(false);
@@ -66,7 +63,9 @@ export function UserDashboard() {
   };
 
   const totalFiles = history.length;
-  const highRiskCount = history.filter(item => !item.resultado_clase.toLowerCase().includes('benigno')).length;
+  const highRiskCount = history.filter(item => 
+    !item.resultado_clase.toLowerCase().includes('benigno')
+  ).length;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -166,7 +165,7 @@ export function UserDashboard() {
                     <tr
                       key={item.id}
                       className="border-b border-border hover:bg-secondary/30 transition-colors group cursor-pointer"
-                      onClick={() => navigate(`/analysis/${item.id}`)}
+                      onClick={() => navigate(`/analisis/${item.id}`)}
                     >
                       <td className="py-4 px-4">
                         <span className="font-mono text-sm font-medium">{item.nombre_fichero_personalizado}</span>
@@ -190,7 +189,7 @@ export function UserDashboard() {
                           className="text-primary hover:text-primary/80 flex items-center gap-1 text-sm font-semibold transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/analysis/${item.id}`);
+                            navigate(`/analisis/${item.id}`);
                           }}
                         >
                           <Eye className="w-4 h-4" /> Ver
