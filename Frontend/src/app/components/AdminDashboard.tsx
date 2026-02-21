@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { Activity, Cpu, Database, Shield, Users, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { Activity, Cpu, Database, Shield, Users, CheckCircle, XCircle, ArrowLeft, LogOut} from 'lucide-react';
+import { authService } from '../services/auth.service';
 
 const performanceData = [
   { time: '00:00', precision: 0.94, recall: 0.91 },
@@ -41,22 +42,35 @@ export function AdminDashboard() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border px-8 py-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-destructive/20 rounded-lg flex items-center justify-center">
-              <Shield className="w-6 h-6 text-destructive" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Panel de Administración</h1>
-              <p className="text-xs text-muted-foreground">Estado del Sistema y Gestión</p>
+        <div className="flex items-center justify-between">
+          {/* Contenedor Izquierdo: Retroceso + Logo/Título */}
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="p-2 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-destructive/20 rounded-lg flex items-center justify-center">
+                <Shield className="w-6 h-6 text-destructive" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">Panel de Administración</h1>
+                <p className="text-xs text-muted-foreground">Estado del Sistema y Gestión</p>
+              </div>
             </div>
           </div>
+
+          {/* Botón Salir */}
+          <button
+            onClick={() => authService.logout()}
+            className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/80 transition-all flex items-center gap-2 border border-border"
+          >
+            <LogOut className="w-4 h-4" />
+            Salir
+          </button>
         </div>
       </header>
 

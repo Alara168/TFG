@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FileText, AlertTriangle, Clock, Upload, Eye, Loader2 } from 'lucide-react';
+import { FileText, AlertTriangle, Clock, Upload, Eye, Loader2, LogOut} from 'lucide-react';
 import { apiClient } from '../services/api.client';
+import { authService } from '../services/auth.service';
 
 interface AnalysisRecord {
   id: number;
@@ -83,6 +84,7 @@ export function UserDashboard() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="bg-card border-b border-border px-8 py-4">
         <div className="flex items-center justify-between">
+          {/* Contenedor Izquierdo: Logo */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-primary" />
@@ -92,13 +94,25 @@ export function UserDashboard() {
               <p className="text-xs text-muted-foreground">Panel de Análisis</p>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/upload')}
-            className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:opacity-90 transition-opacity flex items-center gap-2"
-          >
-            <Upload className="w-4 h-4" />
-            Nuevo Análisis
-          </button>
+
+          {/* Contenedor Derecho: Botones */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/upload')}
+              className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/50 transition-all flex items-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Nuevo Análisis
+            </button>
+            
+            <button
+              onClick={() => authService.logout()}
+              className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/50 transition-all flex items-center gap-2 border border-border"
+            >
+              <LogOut className="w-4 h-4" />
+              Salir
+            </button>
+          </div>
         </div>
       </header>
 

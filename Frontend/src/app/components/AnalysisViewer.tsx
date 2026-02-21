@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Filter, Loader2, Cpu, HelpCircle, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Filter, Loader2, Cpu, HelpCircle, ShieldCheck, AlertTriangle, LogOut} from 'lucide-react';
 import { apiClient } from '../services/api.client';
+import { authService } from '../services/auth.service';
 
 const DESCRIPCIONES_CLASES: Record<string, string> = {
   "Benigno": "El software no presenta comportamientos maliciosos conocidos. Es seguro para el sistema.",
@@ -171,19 +172,31 @@ export function AnalysisViewer() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-6">
-            <div className="text-right mr-4">
-               <span style={{ fontSize: getFontSize(9) }} className="font-bold text-white/40 uppercase tracking-widest block">Veredicto Final</span>
-               <span style={{ fontSize: getFontSize(24) }} className={`font-black uppercase tracking-tighter ${verdict.color}`}>
-                 {verdict.label}
-               </span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-                {verdict.isMalware ? <AlertTriangle className="text-red-500 w-5 h-5" /> : <ShieldCheck className="text-primary w-5 h-5" />}
-                <span style={{ fontSize: getFontSize(32) }} className={`font-black ${verdict.color}`}>
-                  {(analysis?.confianza_global * 100).toFixed(1)}%
-                </span>
-            </div>
+
+        {/* Derecha: Veredicto, Confianza y Botón Salir */}
+        <div className="flex items-center gap-8">
+          <div className="text-right">
+            <span style={{ fontSize: getFontSize(9) }} className="font-bold text-white/40 uppercase tracking-widest block">Veredicto Final</span>
+            <span style={{ fontSize: getFontSize(24) }} className={`font-black uppercase tracking-tighter ${verdict.color}`}>
+              {verdict.label}
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
+            {verdict.isMalware ? <AlertTriangle className="text-red-500 w-5 h-5" /> : <ShieldCheck className="text-primary w-5 h-5" />}
+            <span style={{ fontSize: getFontSize(32) }} className={`font-black ${verdict.color}`}>
+              {(analysis?.confianza_global * 100).toFixed(1)}%
+            </span>
+          </div>
+
+          {/* Botón Salir */}
+          <button
+            onClick={() => authService.logout()}
+            className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/50 transition-all flex items-center gap-2 border border-white/10"
+          >
+            <LogOut className="w-4 h-4" />
+            Salir
+          </button>
         </div>
       </header>
 

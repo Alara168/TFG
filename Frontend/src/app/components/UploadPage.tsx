@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileCode, Info, ArrowLeft, Play, Loader2 } from 'lucide-react';
+import { Upload, FileCode, Info, ArrowLeft, Play, Loader2, LogOut } from 'lucide-react';
 import { apiClient } from '../services/api.client'; // Importamos el cliente
+import { authService } from '../services/auth.service';
 
 export function UploadPage() {
   const navigate = useNavigate();
@@ -86,24 +87,36 @@ export function UploadPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* El resto del JSX se mantiene exactamente igual que lo tenías */}
       <header className="bg-card border-b border-border px-8 py-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
-              <FileCode className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">Subida de Binarios</h1>
-              <p className="text-xs text-muted-foreground">Análisis mediante Deep Learning</p>
+        <div className="flex items-center justify-between">
+          {/* Contenedor Izquierdo: Retroceso + Logo/Título */}
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
+                <FileCode className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Subida de Binarios</h1>
+                <p className="text-xs text-muted-foreground">Análisis mediante Deep Learning</p>
+              </div>
             </div>
           </div>
+
+          {/* Contenedor Derecho: Botón Salir */}
+          <button
+            onClick={() => authService.logout()}
+            className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/50 transition-all flex items-center gap-2 border border-border"
+          >
+            <LogOut className="w-4 h-4" />
+            Salir
+          </button>
         </div>
       </header>
 
