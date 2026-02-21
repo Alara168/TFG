@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .utils import calcular_sha256, extract_features, get_resources, registrar_log
+from .utils import calcular_sha256, extract_features, get_resources, registrar_log, desensamblar_funcion
 from .models import Analisis, DetalleFuncion, LogActividad, Subida, TelemetriaSistema, MetricasModelo
 from .serializers import AnalisisSerializer, HistorialSimplificadoSerializer
 import torch, pandas as pd
@@ -128,15 +128,17 @@ class AnalizarBinarioView(APIView):
                 call_graph_json = grafo_inicial
             )
 
-            # Guardar el TOP 5 de funciones por atención (Explicabilidad)
+            # Guardar el TOP 20 de funciones por atención (Explicabilidad)
             top_i = attn.argsort()[-20:][::-1]
             for i in top_i:
+                asm_code = desensamblar_funcion(file_obj, addrs[i])
                 set_probs = {clases_nombres[j]: float(probs_instancias[i][j]) for j in range(len(clases_nombres))}
                 DetalleFuncion.objects.create(
                     analisis=analisis_obj, 
                     direccion_memoria=addrs[i], 
                     atencion_score=float(attn[i]), 
-                    prediccion_especifica=set_probs
+                    prediccion_especifica=set_probs,
+                    codigo_desensamblado=asm_code
                 )
         
         # 2. VINCULACIÓN: Crear la relación entre el usuario actual y el análisis
@@ -385,3 +387,26 @@ class AdminDashboardView(APIView):
         }
         
         return Response(data)
+
+class DetalleCodigoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, analisis_pk, direccion):
+        # 1. Verificar que el usuario tenga acceso al análisis
+        subida = Subida.objects.filter(analisis_id=analisis_pk, usuario=request.user).first()
+        if not subida:
+            return Response({"error": "No autorizado"}, status=403)
+        
+        # 2. Buscar el detalle de la función
+        detalle = DetalleFuncion.objects.filter(
+            analisis_id=analisis_pk, 
+            direccion_memoria=direccion
+        ).first()
+        
+        if not detalle or not detalle.codigo_desensamblado:
+            return Response({"error": "Código no disponible"}, status=404)
+        
+        return Response({
+            "direccion": detalle.direccion_memoria,
+            "codigo": detalle.codigo_desensamblado
+        })

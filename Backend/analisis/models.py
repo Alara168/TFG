@@ -55,6 +55,7 @@ class DetalleFuncion(models.Model):
     """
     analisis = models.ForeignKey(Analisis, on_delete=models.CASCADE, related_name='detalles_funciones')
     direccion_memoria = models.CharField(max_length=50) # func_addr
+    codigo_desensamblado = models.TextField(blank=True, null=True)
     
     # El valor 'A' (Atención) que devuelve tu modelo para esta función
     atencion_score = models.FloatField()

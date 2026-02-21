@@ -6,6 +6,8 @@ import tempfile
 import os
 import pefile
 import pandas as pd
+from capstone import *
+from capstone.x86 import *
 
 # Carga perezosa del modelo para ahorrar memoria
 _MODELO, _PIPELINE = None, None
@@ -128,3 +130,34 @@ def registrar_log(user, accion, detalles="", request=None):
         detalles=detalles,
         ip_origen=ip
     )
+
+
+def desensamblar_funcion(file_obj, func_addr):
+    try:
+        # Reiniciar cursor y leer datos
+        file_obj.seek(0)
+        data = file_obj.read()
+        
+        # Cargar PE para manejar mapeo de memoria
+        pe = pefile.PE(data=data, fast_load=True)
+        
+        # Convertir dirección virtual a offset de archivo
+        # 'get_offset_from_rva' es la clave aquí
+        rva = int(func_addr, 16) - pe.OPTIONAL_HEADER.ImageBase
+        file_offset = pe.get_offset_from_rva(rva)
+        
+        if file_offset is None:
+            return f"Error: La dirección {func_addr} no es válida en este binario."
+            
+        # Desensamblar 128 bytes desde el offset
+        code = data[file_offset : file_offset + 128]
+        
+        md = Cs(CS_ARCH_X86, CS_MODE_64)
+        output = [f"--- Desensamblado en {func_addr} ---"]
+        for i in md.disasm(code, int(func_addr, 16)):
+            output.append(f"0x{i.address:x}:\t{i.mnemonic}\t{i.op_str}")
+            
+        return "\n".join(output)
+        
+    except Exception as e:
+        return f"Error en descompilación: {str(e)}"
