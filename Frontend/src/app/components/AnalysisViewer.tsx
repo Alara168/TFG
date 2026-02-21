@@ -24,7 +24,6 @@ function PostItTooltip({ text, anchorRect }: { text: string, anchorRect: DOMRect
         top: anchorRect.top, 
         left: anchorRect.right + 20,
         zIndex: 9999,
-        // Amarillo pálido tipo post-it técnico
         backgroundColor: '#fef3c7', 
       }}
       className="w-64 p-4 rounded-sm shadow-[5px_5px_15px_rgba(0,0,0,0.3)] border-l-4 border-yellow-500 animate-in fade-in slide-in-from-left-2 duration-200"
@@ -35,7 +34,6 @@ function PostItTooltip({ text, anchorRect }: { text: string, anchorRect: DOMRect
       <p className="text-[12px] leading-snug text-yellow-950 font-medium">
         {text}
       </p>
-      {/* Flecha Post-it */}
       <div 
         className="absolute top-4 -left-2 w-0 h-0 
         border-t-[6px] border-t-transparent 
@@ -57,8 +55,11 @@ export function AnalysisViewer() {
   const [attentionFilter, setAttentionFilter] = useState(0.01);
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
+  
+  // --- NUEVOS ESTADOS PARA EL CÓDIGO ---
+  const [codeData, setCodeData] = useState<string | null>(null);
+  const [isCodeLoading, setIsCodeLoading] = useState(false);
 
-  // Estado para el hover
   const [hoveredClass, setHoveredClass] = useState<{ name: string, rect: DOMRect } | null>(null);
 
   useEffect(() => {
@@ -66,6 +67,28 @@ export function AnalysisViewer() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Limpiar el código cuando se selecciona una función diferente
+  useEffect(() => {
+    setCodeData(null);
+  }, [selectedAddress]);
+
+  // --- FUNCIÓN PARA LLAMAR AL BACKEND ---
+  const fetchFunctionCode = async () => {
+    if (!selectedAddress || !id) return;
+    setIsCodeLoading(true);
+    try {
+      const res = await apiClient(`/analisis/${id}/codigo/${selectedAddress}/`);
+      if (res.ok) {
+        const data = await res.json();
+        setCodeData(data.codigo);
+      }
+    } catch (err) {
+      console.error("Error al obtener el código:", err);
+    } finally {
+      setIsCodeLoading(false);
+    }
+  };
 
   const scaleFactor = useMemo(() => {
     const base = dimensions.width / 1920;
@@ -173,7 +196,6 @@ export function AnalysisViewer() {
           </div>
         </div>
 
-        {/* Derecha: Veredicto, Confianza y Botón Salir */}
         <div className="flex items-center gap-8">
           <div className="text-right">
             <span style={{ fontSize: getFontSize(9) }} className="font-bold text-white/40 uppercase tracking-widest block">Veredicto Final</span>
@@ -189,7 +211,6 @@ export function AnalysisViewer() {
             </span>
           </div>
 
-          {/* Botón Salir */}
           <button
             onClick={() => authService.logout()}
             className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/50 transition-all flex items-center gap-2 border border-white/10"
@@ -201,7 +222,6 @@ export function AnalysisViewer() {
       </header>
 
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
-        {/* PANEL IZQUIERDO */}
         <aside className="w-64 bg-card/20 border-r border-white/10 p-5 flex flex-col z-30 shrink-0 overflow-y-auto scrollbar-hide">
           <h3 style={{ fontSize: getFontSize(14) }} className="font-black uppercase tracking-widest mb-8 text-white/60">Análisis</h3>
           <div className="space-y-6 pb-4">
@@ -229,7 +249,6 @@ export function AnalysisViewer() {
           </div>
         </aside>
 
-        {/* TOOLTIP PORTAL ESTILO POST-IT */}
         {hoveredClass && (
           <PostItTooltip 
             text={DESCRIPCIONES_CLASES[hoveredClass.name] || ""} 
@@ -237,7 +256,6 @@ export function AnalysisViewer() {
           />
         )}
 
-        {/* CONTENEDOR DEL GRAFO */}
         <main className="flex-1 relative bg-[radial-gradient(circle_at_50%_50%,_#0a0a0a_0%,_#050505_100%)] overflow-y-auto overflow-x-hidden scrollbar-hide flex flex-col items-center">
           <div className="sticky top-4 left-4 z-20 self-start w-fit bg-[#111]/80 backdrop-blur-md border border-white/10 p-4 rounded-xl ml-4 shrink-0">
             <div className="flex items-center gap-3">
@@ -305,7 +323,7 @@ export function AnalysisViewer() {
 
         {/* INSPECTOR DERECHO */}
         {selectedAddress && (
-          <aside className="w-72 bg-card border-l border-white/10 p-6 z-40 shrink-0 overflow-y-auto scrollbar-hide">
+          <aside className="w-80 bg-card border-l border-white/10 p-6 z-40 shrink-0 overflow-y-auto scrollbar-hide">
             <div className="flex items-center justify-between mb-8">
               <h3 style={{ fontSize: getFontSize(16) }} className="flex items-center gap-2 font-black uppercase tracking-tight">
                 <Cpu style={{ width: getFontSize(18), height: getFontSize(18) }} className="text-primary" /> Detalles
@@ -335,6 +353,34 @@ export function AnalysisViewer() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* --- NUEVA SECCIÓN DE CÓDIGO ABAJO DE LOS PORCENTAJES --- */}
+              <div className="pt-4 border-t border-white/10">
+                {!codeData ? (
+                  <button 
+                    onClick={fetchFunctionCode}
+                    disabled={isCodeLoading}
+                    className="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl font-black uppercase text-[11px] flex items-center justify-center gap-2 transition-all"
+                  >
+                    {isCodeLoading ? <Loader2 className="animate-spin w-4 h-4" /> : "Ver código desensamblado"}
+                  </button>
+                ) : (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex justify-between items-center">
+                      <span style={{ fontSize: getFontSize(9) }} className="text-primary font-black uppercase tracking-widest">Ensamblador (ASM)</span>
+                      <button 
+                        onClick={() => setCodeData(null)} 
+                        className="text-[10px] text-white/40 hover:text-white underline"
+                      >
+                        Ocultar
+                      </button>
+                    </div>
+                    <pre className="bg-black/50 p-4 rounded-xl border border-white/5 font-mono text-[10px] text-emerald-400 overflow-x-auto max-h-96 scrollbar-hide shadow-inner">
+                      <code>{codeData}</code>
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           </aside>

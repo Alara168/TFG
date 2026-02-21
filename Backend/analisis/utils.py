@@ -153,9 +153,9 @@ def desensamblar_funcion(file_obj, func_addr):
         code = data[file_offset : file_offset + 128]
         
         md = Cs(CS_ARCH_X86, CS_MODE_64)
-        output = [f"--- Desensamblado en {func_addr} ---"]
+        output = []
         for i in md.disasm(code, int(func_addr, 16)):
-            output.append(f"0x{i.address:x}:\t{i.mnemonic}\t{i.op_str}")
+            output.append(f"{i.mnemonic}\t{i.op_str}")
             
         return "\n".join(output)
         
