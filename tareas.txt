@@ -1,25 +1,19 @@
 Añadir la url con los datos necesarios que haya que pasar.
 
-Añadir una comprobación de hash con virustotal y añadir el resultado de 2/71 de malware y cosas así. Podría perjudicarme
-al decir que mi modelo no es bueno?
-
 Hacer más análisis para poder realizar el gráfico de tendencias
 Poner la lógica de que si recibe un 401 se llame a la función logout
 Añadir ver código desensamblado a la página de analisis
-
+Poner rol en la tabla usuario que sea normal o admin o poner un admin=true para que no todo el mundo pueda acceder a admin
+Botón para poder reentrenar el modelo en LORCA y que se actualicen los datos de precision recall y eso en la BD
+Añadir alguna forma de llegar a la ventana de admin dashboard
 
 Crear endpoints de las cosas que son necesarias:
 
-    - Get estadísitcas admin
     - DELETE de un fichero en concreto para el usuario. Borra solo la relación en subida pero no el análisis del fichero.
-    - Ranking de funciones más peligrosas
-    - POST /api/check-hash/ Un endpoint ligero que reciba solo un Hash. Si ya existe en la base de datos, devuelve el resultado al instante; si no, responde que es necesario subir el archivo para un análisis completo.
     - GET /api/admin/user-reputation/ Un ranking de usuarios basado en la "peligrosidad" de lo que suben. Útil para identificar si un usuario específico está siendo el foco de un ataque o si es un investigador activo.
     - Ver la posibilidad de ver el código y todos los datos de una función en concreto.
     - Exportar informe técnico en PDF
-
     - Añadir encriptamiento a las contraseñas para que se envíen y almacenen encriptadas
-    - Optimizar las llamadas de analisis y grafo para no enviar varias veces la misma información. Podría juntarse en uno solo?
     
 En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
 la velocidad dependa únicamente del modelo de IA. Se puede implementar hilos para aumentar la velocidad?

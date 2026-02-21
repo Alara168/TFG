@@ -1,6 +1,7 @@
 import hashlib, math, pefile, joblib, torch, pandas as pd
 from smda.Disassembler import Disassembler
 from .ia_model import GatedAttentionMIL
+from .models import LogActividad
 import tempfile
 import os
 import pefile
@@ -118,3 +119,12 @@ def extract_features(archivo_django):
                 os.remove(path)
         except:
             pass # Si falla el borrado, no bloqueamos la respuesta del usuario
+
+def registrar_log(user, accion, detalles="", request=None):
+    ip = request.META.get('REMOTE_ADDR') if request else "0.0.0.0"
+    LogActividad.objects.create(
+        usuario=user if user.is_authenticated else None,
+        accion=accion,
+        detalles=detalles,
+        ip_origen=ip
+    )

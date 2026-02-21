@@ -86,7 +86,7 @@ class LogActividad(models.Model):
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     accion = models.CharField(max_length=20, choices=ACCIONES)
     ip_origen = models.GenericIPAddressField(null=True, blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     detalles = models.TextField(blank=True)
 
     class Meta:
@@ -105,3 +105,25 @@ class ReporteFalsoPositivo(models.Model):
     comentario = models.TextField()
     revisado_por_admin = models.BooleanField(default=False)
     fecha_reporte = models.DateTimeField(auto_now_add=True)
+
+class TelemetriaSistema(models.Model):
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    cpu_usage = models.FloatField()
+    gpu_usage = models.FloatField()
+
+    class Meta:
+        ordering = ['-timestamp']
+
+class MetricasModelo(models.Model):
+    clase = models.CharField(max_length=50)
+    precision = models.FloatField()
+    recall = models.FloatField()
+    f1_score = models.FloatField()
+    support = models.IntegerField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Métricas del Modelo"
+
+    def __str__(self):
+        return f"{self.clase} - {self.timestamp.strftime('%Y-%m-%d')}"

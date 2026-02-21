@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .utils import calcular_sha256, extract_features, get_resources
-from .models import Analisis, DetalleFuncion, LogActividad, Subida
+from .utils import calcular_sha256, extract_features, get_resources, registrar_log
+from .models import Analisis, DetalleFuncion, LogActividad, Subida, TelemetriaSistema, MetricasModelo
 from .serializers import AnalisisSerializer, HistorialSimplificadoSerializer
 import torch, pandas as pd
 from rest_framework import generics
@@ -16,6 +16,14 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import networkx as nx
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
+import psutil
+from django.db.models import Count
+from django.utils import timezone
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from datetime import timedelta
+import GPUtil
+from django.db.models import Max
 
 
 class AnalizarBinarioView(APIView):
@@ -45,6 +53,7 @@ class AnalizarBinarioView(APIView):
             return Response({"error": "El archivo es demasiado grande (máx 10MB)."}, status=413)
 
         if not self.validate_pe(file_obj):
+            registrar_log(request.user, 'UPLOAD', "Intento de subida de archivo no PE", request)
             return Response({
                 "error": "Tipo de archivo no soportado.",
                 "detalle": "El modelo solo acepta ejecutables de Windows (Portable Executable) válidos."
@@ -144,7 +153,8 @@ class AnalizarBinarioView(APIView):
         LogActividad.objects.create(
             usuario=user_actual, 
             accion='UPLOAD', 
-            detalles=log_msg
+            detalles=log_msg,
+            ip_origen=self.request.META.get('REMOTE_ADDR')
         )
 
         return Response(AnalisisSerializer(analisis_obj).data)
@@ -177,6 +187,9 @@ class RegistroUsuarioView(generics.CreateAPIView):
 class CustomJWTSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
+        request = self.context.get('request')
+        
+        registrar_log(self.user, 'LOGIN', "Inicio de sesión exitoso", request)
         
         # Añadimos información extra a la respuesta
         data['user_id'] = self.user.id
@@ -274,3 +287,101 @@ class LogoutView(APIView):
             return Response({"detalle": "Sesión cerrada exitosamente."}, status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
             return Response({"error": "Token inválido o no proporcionado."}, status=status.HTTP_400_BAD_REQUEST)
+
+class AdminDashboardView(APIView):
+    #TODO: poner que compruebe permisos
+    # permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        # --- 1. LÓGICA DE ACTUALIZACIÓN LAZY (EAGER COMPUTATION) ---
+        ahora = timezone.now()
+        ultimo_registro = TelemetriaSistema.objects.order_by('-timestamp').first()
+
+        # Si no hay registros o el último fue hace > 15 minutos, calculamos y guardamos
+        if not ultimo_registro or (ahora - ultimo_registro.timestamp) > timedelta(minutes=15):
+            cpu = psutil.cpu_percent(interval=1)
+            gpu = round(GPUtil.getGPUs()[0].load * 100) if GPUtil.getGPUs() else 0
+            TelemetriaSistema.objects.create(cpu_usage=cpu, gpu_usage=gpu)
+            
+
+        dataset_size = round((45000 + Analisis.objects.count()) / 1000)
+
+        # --- 2. RESTO DE KPIs Y LOGS ---
+        
+        
+        # 1. Obtener el umbral de tiempo
+        umbral_tiempo = ahora - timedelta(minutes=30)
+
+        # 2. Obtener usuarios únicos que han hecho LOGIN en los últimos 30 min
+        # Usamos values('usuario_id') para obtener solo los IDs y luego distinct() para evitar duplicados
+        active_users_count = LogActividad.objects.filter(
+            accion='LOGIN', 
+            timestamp__gte=umbral_tiempo
+        ).values('usuario_id').distinct().count()
+
+        # 3. Logs de actividad para la tabla (los 5 más recientes)
+        logs_data = LogActividad.objects.order_by('-timestamp')[:5]
+        formatted_logs = [
+            {
+                "id": log.id,
+                "user": log.usuario.username if log.usuario else "Desconocido",
+                "action": log.accion,
+                "timestamp": log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                "ip": log.ip_origen
+            } for log in logs_data
+        ]
+
+        recent_logins = [
+            {
+                "user": log.usuario.username if log.usuario else "Desconocido",
+                "timestamp": log.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+            } for log in LogActividad.objects.filter(accion='LOGIN').order_by('-timestamp')[:10]
+        ]
+
+        
+        # 4. Obtención de datos históricos para la gráfica
+        hace_24h = ahora - timedelta(hours=24)
+        telemetria = TelemetriaSistema.objects.filter(timestamp__gte=hace_24h).order_by('timestamp')
+        resource_usage = [
+            {"time": t.timestamp.strftime('%H:%M'), "cpu": t.cpu_usage, "gpu": t.gpu_usage} 
+            for t in telemetria
+        ]
+
+        # 5. Datos actuales del modelo
+        metricas = MetricasModelo.objects.order_by('-timestamp')[:5]
+        
+        model_performance = [
+                {
+                    "name": m.clase,
+                    "precision": m.precision,
+                    "recall": m.recall,
+                    "f1": m.f1_score
+                } for m in metricas
+            ]
+
+        # 6. Datos actuales del sistema
+        gpu_usage = round(GPUtil.getGPUs()[0].load * 100) if GPUtil.getGPUs() else 0
+        cpu_usage = psutil.cpu_percent(interval=1)
+
+        # 7. Construcción de la respuesta
+        data = {
+            "kpis": {
+                "gpu_load": gpu_usage,
+                "cpu_load": cpu_usage,
+                "active_users": len(recent_logins),
+                "dataset_size": f"{dataset_size}K"
+            },
+            
+            "charts": {
+                "resource_usage": resource_usage,
+                "model_performance": model_performance
+            },
+            "pseudo_labels": [
+                {"id": a.id, "filename": a.nombre_fichero, "confidence": float(a.confianza_global), 
+                 "prediction": a.resultado_clase, "status": "pendiente"} 
+                for a in Analisis.objects.all().order_by('-fecha_creacion')[:5]
+            ],
+            "user_logs": formatted_logs
+        }
+        
+        return Response(data)

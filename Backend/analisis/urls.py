@@ -6,7 +6,8 @@ from .views import (
     RegistroUsuarioView,
     CustomLoginView,
     CallGraphView,
-    LogoutView
+    LogoutView,
+    AdminDashboardView,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -19,4 +20,5 @@ urlpatterns = [
     path('login/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('analisis/<int:pk>/grafo/', CallGraphView.as_view(), name='analisis-grafo'),
     path('logout/', LogoutView.as_view(), name='auth_logout'),
+    path('admin/dashboard-stats/', AdminDashboardView.as_view(), name='admin-stats'),
 ]

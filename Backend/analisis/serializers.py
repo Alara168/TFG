@@ -43,7 +43,7 @@ class LogActividadSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = LogActividad
-        fields = ['id', 'usuario', 'accion', 'fecha', 'detalles']
+        fields = ['id', 'usuario', 'accion', 'fecha', 'detalles', 'ip_origen']
 
 class RegistroSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
