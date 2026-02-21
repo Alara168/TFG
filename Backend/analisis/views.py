@@ -89,17 +89,33 @@ class AnalizarBinarioView(APIView):
                 probs_instancias = probs_instancias_tensor.cpu().numpy()
                 attn = A.cpu().numpy()[0]
 
-            # Guardar el Análisis Global
-            idx_max = probs_global.argmax()
             clases_nombres = pipeline['nombres']
+            probs_dict = {n: float(p) for n, p in zip(clases_nombres, probs_global)}
             
+            idx_max = probs_global.argmax()
+            confianza_max = float(probs_global[idx_max])
+            suma_otras = sum(v for k, v in probs_dict.items() if k != "Benigno")
+
+            if confianza_max < 0.4 and suma_otras < 0.5:
+                # Forzamos a Benigno
+                resultado_final = "Benigno"
+                # Calculamos la suma del resto de categorías
+                
+                # Ajustamos el diccionario
+                probs_dict["Benigno"] = 1.0 - suma_otras
+                confianza_final = float(probs_dict["Benigno"])
+            else:
+                resultado_final = clases_nombres[idx_max]
+                confianza_final = confianza_max
+            
+            # Guardar el Análisis Global usando las variables calculadas
             analisis_obj = Analisis.objects.create(
                 nombre_fichero=file_obj.name, 
                 hash_sha256=h, 
                 tamano_bytes=file_obj.size,
-                resultado_clase=clases_nombres[idx_max], 
-                confianza_global=float(probs_global[idx_max]),
-                probabilidades_json={n: float(p) for n, p in zip(clases_nombres, probs_global)},
+                resultado_clase=resultado_final,
+                confianza_global=confianza_final,
+                probabilidades_json=probs_dict,
                 call_graph_json = grafo_inicial
             )
 

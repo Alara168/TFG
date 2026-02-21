@@ -3,8 +3,6 @@ Añadir la url con los datos necesarios que haya que pasar.
 Añadir una comprobación de hash con virustotal y añadir el resultado de 2/71 de malware y cosas así. Podría perjudicarme
 al decir que mi modelo no es bueno?
 
-Volver a poner que aparezca la descripción de las categorías en la ventana de análisis
-
 Hacer más análisis para poder realizar el gráfico de tendencias
 Poner la lógica de que si recibe un 401 se llame a la función logout
 Añadir un botón de ver contraseña en el login

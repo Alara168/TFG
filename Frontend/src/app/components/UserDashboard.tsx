@@ -53,10 +53,7 @@ export function UserDashboard() {
     fetchHistorial();
   }, []);
 
-  const getStatusColor = (status: string, confidence: number) => {
-    // Si la confianza es menor al 40%, siempre es color Benigno (Verde)
-    if (confidence < 0.4) return 'text-[#22c55e]';
-
+  const getStatusColor = (status: string) => {
     const s = status.toLowerCase();
     if (s.includes('benigno')) return 'text-[#22c55e]';
     if (s.includes('ransom')) return 'text-[#ef4444]';
@@ -66,7 +63,10 @@ export function UserDashboard() {
     return 'text-destructive';
   };
 
-  const getScoreColor = (score: number) => {
+  const getScoreColor = (score: number, resultado: string) => {
+    // Si es benigno, forzamos verde
+    if (resultado.toLowerCase().includes('benigno')) return 'text-[#22c55e]';
+
     const s = score * 100;
     if (s >= 80) return 'text-destructive';
     if (s >= 50) return 'text-accent';
@@ -74,8 +74,9 @@ export function UserDashboard() {
   };
 
   const totalFiles = history.length;
+  // Ahora filtramos basándonos en el resultado final que viene del backend
   const highRiskCount = history.filter(item => 
-    item.confianza_global >= 0.4 && !item.resultado_clase.toLowerCase().includes('benigno')
+    !item.resultado_clase.toLowerCase().includes('benigno')
   ).length;
 
   return (
@@ -102,36 +103,23 @@ export function UserDashboard() {
       </header>
 
       <div className="p-8 space-y-8">
-        {/* KPIs */}
         <div className="grid grid-cols-3 gap-6">
           <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-muted-foreground">Total Analizados</h3>
-              <FileText className="w-5 h-5 text-primary" />
-            </div>
+            <h3 className="text-sm text-muted-foreground mb-2">Total Analizados</h3>
             <p className="text-3xl font-bold">{totalFiles}</p>
           </div>
-
           <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-muted-foreground">Amenazas Detectadas</h3>
-              <AlertTriangle className="w-5 h-5 text-destructive" />
-            </div>
+            <h3 className="text-sm text-muted-foreground mb-2">Amenazas Detectadas</h3>
             <p className="text-3xl font-bold text-destructive">{highRiskCount}</p>
           </div>
-
           <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm text-muted-foreground">Tasa de Detección</h3>
-              <Clock className="w-5 h-5 text-accent" />
-            </div>
+            <h3 className="text-sm text-muted-foreground mb-2">Tasa de Detección</h3>
             <p className="text-3xl font-bold">
               {totalFiles > 0 ? ((highRiskCount / totalFiles) * 100).toFixed(1) : 0}%
             </p>
           </div>
         </div>
 
-        {/* Gráfico */}
         <div className="bg-card border border-border rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">Tendencias de Amenazas</h2>
           <ResponsiveContainer width="100%" height={250}>
@@ -139,36 +127,29 @@ export function UserDashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
               <XAxis dataKey="month" stroke="#888" />
               <YAxis stroke="#888" />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1E1E1E', border: '1px solid #333', borderRadius: '8px' }}
-              />
+              <Tooltip contentStyle={{ backgroundColor: '#1E1E1E', border: '1px solid #333', borderRadius: '8px' }} />
               <Legend />
-              <Line name="Otros/Ransom" type="monotone" dataKey="Ransom" stroke={MALWARE_COLORS.ransomware} strokeWidth={2} dot={{ r: 4 }} />
-              <Line name="Financiero" type="monotone" dataKey="Financiero" stroke={MALWARE_COLORS.financiero} strokeWidth={2} dot={{ r: 4 }} />
-              <Line name="Herramientas/Sistema" type="monotone" dataKey="Sistema" stroke={MALWARE_COLORS.sistema} strokeWidth={2} dot={{ r: 4 }} />
-              <Line name="Intrusión" type="monotone" dataKey="Intrusion" stroke={MALWARE_COLORS.intrusion} strokeWidth={2} dot={{ r: 4 }} />
-              <Line name="Benigno" type="monotone" dataKey="Benigno" stroke={MALWARE_COLORS.benigno} strokeWidth={2} strokeDasharray="5 5" dot={false} />
+              <Line name="Otros/Ransom" type="monotone" dataKey="Ransom" stroke={MALWARE_COLORS.ransomware} strokeWidth={2} />
+              <Line name="Financiero" type="monotone" dataKey="Financiero" stroke={MALWARE_COLORS.financiero} strokeWidth={2} />
+              <Line name="Herramientas/Sistema" type="monotone" dataKey="Sistema" stroke={MALWARE_COLORS.sistema} strokeWidth={2} />
+              <Line name="Intrusión" type="monotone" dataKey="Intrusion" stroke={MALWARE_COLORS.intrusion} strokeWidth={2} />
+              <Line name="Benigno" type="monotone" dataKey="Benigno" stroke={MALWARE_COLORS.benigno} strokeWidth={2} strokeDasharray="5 5" />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Tabla de Historial */}
         <div className="bg-card border border-border rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">Historial de Análisis</h2>
-          
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Cargando historial...</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Nombre del Archivo</th>
-                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">SHA-256</th>
-                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Fecha de Subida</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Archivo</th>
                     <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Resultado</th>
                     <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Confianza</th>
                     <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase font-semibold">Acción</th>
@@ -176,49 +157,25 @@ export function UserDashboard() {
                 </thead>
                 <tbody>
                   {history.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="border-b border-border hover:bg-secondary/30 transition-colors group cursor-pointer"
-                      onClick={() => navigate(`/analisis/${item.id}`)}
-                    >
+                    <tr key={item.id} className="border-b border-border hover:bg-secondary/30 cursor-pointer" onClick={() => navigate(`/analisis/${item.id}`)}>
+                      <td className="py-4 px-4 font-mono text-sm">{item.nombre_fichero_personalizado}</td>
                       <td className="py-4 px-4">
-                        <span className="font-mono text-sm font-medium">{item.nombre_fichero_personalizado}</span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className="text-muted-foreground font-mono text-xs">{item.hash_sha256.substring(0, 16)}...</span>
-                      </td>
-                      <td className="py-4 px-4 text-sm text-muted-foreground">{item.fecha_subida}</td>
-                      <td className="py-4 px-4">
-                        <span className={`text-sm font-bold ${getStatusColor(item.resultado_clase, item.confianza_global)}`}>
-                          {/* LÓGICA SOLICITADA: Si confianza < 40%, mostrar Benigno */}
-                          {item.confianza_global < 0.4 ? "Benigno" : item.resultado_clase}
+                        <span className={`text-sm font-bold ${getStatusColor(item.resultado_clase)}`}>
+                          {item.resultado_clase}
                         </span>
                       </td>
                       <td className="py-4 px-4">
-                        <span className={`text-sm font-bold ${getScoreColor(item.confianza_global)}`}>
+                        <span className={`text-sm font-bold ${getScoreColor(item.confianza_global, item.resultado_clase)}`}>
                           {(item.confianza_global * 100).toFixed(2)}%
                         </span>
                       </td>
                       <td className="py-4 px-4">
-                        <button 
-                          className="text-primary hover:text-primary/80 flex items-center gap-1 text-sm font-semibold transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/analisis/${item.id}`);
-                          }}
-                        >
+                        <button className="text-primary hover:text-primary/80 flex items-center gap-1 text-sm font-semibold" onClick={(e) => { e.stopPropagation(); navigate(`/analisis/${item.id}`); }}>
                           <Eye className="w-4 h-4" /> Ver
                         </button>
                       </td>
                     </tr>
                   ))}
-                  {!isLoading && history.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="text-center py-10 text-muted-foreground">
-                        No se encontraron registros de análisis.
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
