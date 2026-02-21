@@ -5,6 +5,7 @@ import { UploadPage } from './components/UploadPage';
 import { AnalysisViewer } from './components/AnalysisViewer';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { Registro } from './components/Registro';
 import '../styles/fonts.css';
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
           {/* RUTA PÚBLICA */}
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/registro" element={<Registro />} />
 
           {/* RUTAS PROTEGIDAS (Requieren sesión) */}
           <Route element={<ProtectedRoute />}>
