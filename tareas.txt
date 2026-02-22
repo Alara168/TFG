@@ -6,7 +6,6 @@ Botón para poder reentrenar el modelo en LORCA y que se actualicen los datos de
 Crear endpoints de las cosas que son necesarias:
 
     - DELETE de un fichero en concreto para el usuario. Borra solo la relación en subida pero no el análisis del fichero.
-    - GET /api/admin/user-reputation/ Un ranking de usuarios basado en la "peligrosidad" de lo que suben. Útil para identificar si un usuario específico está siendo el foco de un ataque o si es un investigador activo.
     - Exportar informe técnico en PDF
     - Añadir encriptamiento a las contraseñas para que se envíen y almacenen encriptadas
     

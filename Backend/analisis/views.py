@@ -17,13 +17,12 @@ import networkx as nx
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 import psutil
-from django.db.models import Count
+from django.db.models import Count, Max, Sum, F, Case, When, FloatField
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
 from datetime import timedelta
 import GPUtil
-from django.db.models import Max
 
 
 class AnalizarBinarioView(APIView):
@@ -333,12 +332,7 @@ class AdminDashboardView(APIView):
             } for log in logs_data
         ]
 
-        recent_logins = [
-            {
-                "user": log.usuario.username if log.usuario else "Desconocido",
-                "timestamp": log.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-            } for log in LogActividad.objects.filter(accion='LOGIN').order_by('-timestamp')[:10]
-        ]
+        active_users = len(LogActividad.objects.filter(accion='LOGIN').values('usuario').annotate(max_time=Max('timestamp')))
 
         
         # 4. Obtención de datos históricos para la gráfica
@@ -365,12 +359,18 @@ class AdminDashboardView(APIView):
         gpu_usage = round(GPUtil.getGPUs()[0].load * 100) if GPUtil.getGPUs() else 0
         cpu_usage = psutil.cpu_percent(interval=1)
 
-        # 7. Construcción de la respuesta
+        # 7. Datos actuales de reputación
+        # Consulta para obtener reputación: limitamos a [:3]
+        top_users_risk = Subida.objects.values('usuario__username') \
+            .annotate(risk_score=Sum(F('analisis__confianza_global'))) \
+            .order_by('-risk_score')[:3]
+
+        # 8. Construcción de la respuesta
         data = {
             "kpis": {
                 "gpu_load": gpu_usage,
                 "cpu_load": cpu_usage,
-                "active_users": len(recent_logins),
+                "active_users": active_users,
                 "dataset_size": f"{dataset_size}K"
             },
             
@@ -383,7 +383,8 @@ class AdminDashboardView(APIView):
                  "prediction": a.resultado_clase, "status": "pendiente"} 
                 for a in Analisis.objects.all().order_by('-fecha_creacion')[:5]
             ],
-            "user_logs": formatted_logs
+            "user_logs": formatted_logs,
+            "user_reputation": list(top_users_risk),
         }
         
         return Response(data)

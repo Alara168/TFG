@@ -5,6 +5,45 @@ import { Activity, Cpu, Database, Shield, Users, CheckCircle, XCircle, ArrowLeft
 import { apiClient } from '../services/api.client';
 import { authService } from '../services/auth.service';
 
+function UserPodium({ data }: { data: any[] }) {
+  const sorted = [...data].sort((a, b) => b.risk_score - a.risk_score);
+  const [first, second, third] = sorted;
+
+  return (
+    <div className="flex items-end justify-center gap-4 h-56 mb-8">
+      {/* 2º PUESTO (PLATA) */}
+      {second && (
+        <div className="flex flex-col items-center w-24">
+          <span className="text-xs mb-1 text-gray-300 font-medium">{second.usuario__username}</span>
+          <div className="w-full h-24 bg-gray-400/20 border-t-4 border-gray-400 flex items-center justify-center font-bold text-gray-300 shadow-lg">
+            2º
+          </div>
+        </div>
+      )}
+
+      {/* 1º PUESTO (ORO) */}
+      {first && (
+        <div className="flex flex-col items-center w-24">
+          <span className="text-xs mb-1 text-yellow-400 font-bold">{first.usuario__username}</span>
+          <div className="w-full h-36 bg-yellow-500/20 border-t-4 border-yellow-500 flex items-center justify-center font-bold text-yellow-400 shadow-xl">
+            1º
+          </div>
+        </div>
+      )}
+
+      {/* 3º PUESTO (BRONCE) */}
+      {third && (
+        <div className="flex flex-col items-center w-24">
+          <span className="text-xs mb-1 text-amber-700 font-medium">{third.usuario__username}</span>
+          <div className="w-full h-16 bg-amber-700/20 border-t-4 border-amber-700 flex items-center justify-center font-bold text-amber-700 shadow-lg">
+            3º
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AdminDashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
@@ -157,6 +196,18 @@ export function AdminDashboard() {
               </tbody>
             </table>
           </div>
+        </div>
+        {/* Sección de Reputación */}
+        <div className="bg-card border border-border rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
+            <Shield className="w-5 h-5 text-destructive" /> 
+            Top 3 Usuarios con Mayor Riesgo
+          </h2>
+          {data.user_reputation && data.user_reputation.length > 0 ? (
+            <UserPodium data={data.user_reputation} />
+          ) : (
+            <p className="text-muted-foreground text-center py-10">No hay datos de riesgo suficientes.</p>
+          )}
         </div>
       </div>
     </div>
