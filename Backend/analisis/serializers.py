@@ -69,6 +69,7 @@ class HistorialSimplificadoSerializer(serializers.ModelSerializer):
     confianza_global = serializers.FloatField(source='analisis.confianza_global', read_only=True)
     hash_sha256 = serializers.CharField(source='analisis.hash_sha256', read_only=True)
     tamano_bytes = serializers.IntegerField(source='analisis.tamano_bytes', read_only=True)
+    id_analisis = serializers.IntegerField(source='analisis.id', read_only=True)
     
     # Formateamos la fecha de subida del usuario
     fecha_subida = serializers.DateTimeField(format="%d-%m-%Y %H:%M:%S", read_only=True)
@@ -76,7 +77,7 @@ class HistorialSimplificadoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subida
         fields = [
-            'id', 
+            'id_analisis',
             'nombre_fichero_personalizado', 
             'hash_sha256', 
             'resultado_clase', 

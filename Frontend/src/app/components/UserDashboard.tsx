@@ -7,7 +7,7 @@ import { apiClient } from '../services/api.client';
 import { authService } from '../services/auth.service';
 
 interface AnalysisRecord {
-  id: number;
+  id_analisis: number;
   nombre_fichero_personalizado: string;
   hash_sha256: string;
   resultado_clase: string;
@@ -186,7 +186,7 @@ export function UserDashboard() {
                 </thead>
                 <tbody>
                   {history.map((item) => (
-                    <tr key={item.id} className="border-b border-border hover:bg-secondary/30 cursor-pointer" onClick={() => navigate(`/analisis/${item.id}`)}>
+                    <tr key={item.id_analisis} className="border-b border-border hover:bg-secondary/30 cursor-pointer" onClick={() => navigate(`/analisis/${item.id_analisis}`)}>
                       <td className="py-4 px-4 font-mono text-sm">{item.nombre_fichero_personalizado}</td>
                       <td className="py-4 px-4">
                         <span className={`text-sm font-bold ${getStatusColor(item.resultado_clase)}`}>
@@ -199,7 +199,7 @@ export function UserDashboard() {
                         </span>
                       </td>
                       <td className="py-4 px-4">
-                        <button className="text-primary hover:text-primary/80 flex items-center gap-1 text-sm font-semibold" onClick={(e) => { e.stopPropagation(); navigate(`/analisis/${item.id}`); }}>
+                        <button className="text-primary hover:text-primary/80 flex items-center gap-1 text-sm font-semibold" onClick={(e) => { e.stopPropagation(); navigate(`/analisis/${item.id_analisis}`); }}>
                           <Eye className="w-4 h-4" /> Ver
                         </button>
                       </td>
