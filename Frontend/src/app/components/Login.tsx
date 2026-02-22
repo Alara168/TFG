@@ -15,10 +15,17 @@ export function Login() {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
+  
     try {
-      await authService.login({ username, password });
-      navigate('/dashboard');
+      // 1. Llamamos al servicio y guardamos la respuesta completa
+      const userData = await authService.login({ username, password });
+  
+      // 2. Comprobamos el booleano 'isAdmin' que viene del servidor
+      if (userData.isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'Error de conexión con el servidor');
     } finally {

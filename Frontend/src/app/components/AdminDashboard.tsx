@@ -14,6 +14,14 @@ export function AdminDashboard() {
       setIsLoading(true);
       try {
         const res = await apiClient('/admin/dashboard-stats/');
+        
+        // 1. Verificación de permisos
+        if (res.status === 403) {
+          navigate('/dashboard');
+          return;
+        }
+  
+        // 2. Procesamiento normal si es 200 OK
         if (res.ok) {
           const result = await res.json();
           setData(result);
@@ -25,7 +33,7 @@ export function AdminDashboard() {
       }
     };
     fetchData();
-  }, []);
+  }, [navigate]);
 
   if (isLoading) {
     return (

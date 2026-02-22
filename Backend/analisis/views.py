@@ -197,6 +197,7 @@ class CustomJWTSerializer(TokenObtainPairSerializer):
         data['user_id'] = self.user.id
         data['username'] = self.user.username
         data['email'] = self.user.email
+        data['isAdmin'] = self.user.is_staff
         return data
 
 class CustomLoginView(TokenObtainPairView):
@@ -291,8 +292,7 @@ class LogoutView(APIView):
             return Response({"error": "Token inválido o no proporcionado."}, status=status.HTTP_400_BAD_REQUEST)
 
 class AdminDashboardView(APIView):
-    #TODO: poner que compruebe permisos
-    # permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser]
 
     def get(self, request):
         # --- 1. LÓGICA DE ACTUALIZACIÓN LAZY (EAGER COMPUTATION) ---
