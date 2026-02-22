@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, Legend } from 'recharts';
-import { Activity, Cpu, Database, Shield, Users, CheckCircle, XCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { Activity, Cpu, Database, Shield, Users, CheckCircle, XCircle, ArrowLeft, Loader2, LogOut } from 'lucide-react';
 import { apiClient } from '../services/api.client';
+import { authService } from '../services/auth.service';
 
 export function AdminDashboard() {
   const navigate = useNavigate();
@@ -14,20 +15,16 @@ export function AdminDashboard() {
       setIsLoading(true);
       try {
         const res = await apiClient('/admin/dashboard-stats/');
-        
-        // 1. Verificación de permisos
-        if (res.status === 403) {
-          navigate('/dashboard');
-          return;
-        }
-  
-        // 2. Procesamiento normal si es 200 OK
-        if (res.ok) {
-          const result = await res.json();
-          setData(result);
-        }
+        // Si llegamos aquí, sabemos que es un 200 OK
+        const result = await res.json();
+        setData(result);
       } catch (err) {
-        console.error("Error al cargar dashboard:", err);
+        if (err === 'Forbidden') {
+          navigate('/dashboard', { state: { error: "No tienes permisos de administrador" } });
+        } else {
+          console.error("Error al cargar dashboard:", err);
+          // Aquí podrías manejar otros errores (red, servidor, etc.)
+        }
       } finally {
         setIsLoading(false);
       }
@@ -48,10 +45,9 @@ export function AdminDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border px-8 py-4">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard')} className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+        <div className="flex items-center justify-between w-full">
+          
+          {/* Contenedor izquierdo: Título e Icono */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-destructive/20 rounded-lg flex items-center justify-center">
               <Shield className="w-6 h-6 text-destructive" />
@@ -61,6 +57,15 @@ export function AdminDashboard() {
               <p className="text-xs text-muted-foreground">Estado del Sistema y Gestión</p>
             </div>
           </div>
+
+          <button
+            onClick={() => authService.logout()}
+            className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/50 transition-all flex items-center gap-2 border border-white/10"
+          >
+            <LogOut className="w-4 h-4" />
+            Salir
+          </button>
+          
         </div>
       </header>
 

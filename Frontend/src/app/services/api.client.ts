@@ -25,6 +25,10 @@ export const apiClient = async (endpoint: string, options: RequestInit = {}) => 
       authService.logout();
       return Promise.reject('Unauthorized');
     }
+
+    if (response.status === 403) {
+      return Promise.reject('Forbidden');
+    }
   
     return response;
   };

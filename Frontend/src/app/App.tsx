@@ -7,10 +7,21 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Registro } from './components/Registro';
 import '../styles/fonts.css';
+import { Toaster } from 'react-hot-toast';
 
 export default function App() {
   return (
     <div className="dark">
+      <Toaster 
+        position="top-center" 
+        toastOptions={{
+          style: {
+            background: '#1E1E1E',
+            color: '#fff',
+            border: '1px solid #333'
+          }
+        }} 
+      />
       <BrowserRouter>
         <Routes>
           {/* RUTA PÚBLICA */}

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { FileText, AlertTriangle, Clock, Upload, Eye, Loader2, LogOut} from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { apiClient } from '../services/api.client';
 import { authService } from '../services/auth.service';
 
@@ -36,6 +37,20 @@ export function UserDashboard() {
   const navigate = useNavigate();
   const [history, setHistory] = useState<AnalysisRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
+
+  useEffect(() => {
+    // 1. Verificamos que exista el error
+    if (location.state?.error) {
+      // 2. Ejecutamos el toast
+      toast.error(location.state.error);
+      console.log("Error:", location.state.error);
+      
+      // 3. Limpiamos el estado de la navegación de forma "limpia" para React
+      // Esto evita que el toast vuelva a salir si el usuario refresca la página
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   useEffect(() => {
     const fetchHistorial = async () => {
