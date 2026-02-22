@@ -13,6 +13,29 @@ const DESCRIPCIONES_CLASES: Record<string, string> = {
   "Herramientas/Sistema": "Herramientas de administración o de hacking que pueden ser usadas para ataques o pruebas de penetración."
 };
 
+const exportData = (data: any, type: 'json' | 'csv', filename: string) => {
+  let content = "";
+  let contentType = "";
+
+  if (type === 'json') {
+    content = JSON.stringify(data, null, 2);
+    contentType = 'application/json';
+  } else {
+    // Conversión simple a CSV para los detalles de funciones
+    const headers = Object.keys(data[0]).join(',');
+    const rows = data.map((obj: any) => Object.values(obj).join(','));
+    content = [headers, ...rows].join('\n');
+    contentType = 'text/csv';
+  }
+
+  const blob = new Blob([content], { type: contentType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filename}.${type}`;
+  link.click();
+};
+
 // Componente Tooltip Estilo Post-it
 function PostItTooltip({ text, anchorRect }: { text: string, anchorRect: DOMRect | null }) {
   if (!anchorRect) return null;
@@ -194,6 +217,21 @@ export function AnalysisViewer() {
               {analysis?.hash_sha256}
             </p>
           </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button 
+            onClick={() => exportData(analysis, 'json', 'analisis_completo')}
+            className="text-xs bg-white/5 px-3 py-1.5 rounded hover:bg-white/10"
+          >
+            Export JSON
+          </button>
+          <button 
+            onClick={() => exportData(analysis.detalles_funciones, 'csv', 'funciones_atencion')}
+            className="text-xs bg-primary/20 px-3 py-1.5 rounded hover:bg-primary/30"
+          >
+            Export CSV
+          </button>
         </div>
 
         <div className="flex items-center gap-8">
