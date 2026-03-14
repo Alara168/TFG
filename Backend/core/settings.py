@@ -56,8 +56,8 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': True,
-    'SIGNING_KEY': SECRET_KEY, # Usa tu clave secreta para firmar
-    'AUTH_HEADER_TYPES': ('Bearer',), # Ahora usaremos "Bearer <token>"
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
     'BLACKLIST_AFTER_ROTATION': True, #Invalida token viejo cuando se crea uno nuevo
 }
 

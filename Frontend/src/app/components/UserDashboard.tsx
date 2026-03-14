@@ -125,7 +125,7 @@ export function UserDashboard() {
               className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/50 transition-all flex items-center gap-2 border border-border"
             >
               <LogOut className="w-4 h-4" />
-              Salir
+              Cerrar Sesión
             </button>
           </div>
         </div>
