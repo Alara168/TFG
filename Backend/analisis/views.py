@@ -26,7 +26,7 @@ import GPUtil
 
 RECURSOS_IA = None
 
-def obtener_recursos_cache():
+def obtener_recursos_ia():
     global RECURSOS_IA
     if RECURSOS_IA is None:
         RECURSOS_IA = get_resources()
