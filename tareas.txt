@@ -1,8 +1,5 @@
-Añadir la url con los datos necesarios que haya que pasar.
-
 Hacer más análisis para poder realizar el gráfico de tendencias
 Botón para poder reentrenar el modelo en LORCA y que se actualicen los datos de precision recall y eso en la BD
-Revisar la parte de exportar CSV
 
 Crear endpoints de las cosas que son necesarias:
 

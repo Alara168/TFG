@@ -21,10 +21,30 @@ const exportData = (data: any, type: 'json' | 'csv', filename: string) => {
     content = JSON.stringify(data, null, 2);
     contentType = 'application/json';
   } else {
-    // Conversión simple a CSV para los detalles de funciones
-    const headers = Object.keys(data[0]).join(',');
-    const rows = data.map((obj: any) => Object.values(obj).join(','));
-    content = [headers, ...rows].join('\n');
+    if (!data || data.length === 0) return;
+
+    const flattenedData = data.map((item: any) => {
+      const { prediccion_especifica, ...rest } = item;
+      
+      // Retornamos un objeto nuevo que combina los datos base 
+      // con cada clave de la predicción (Benigno: 0.1, Malware: 0.9, etc.)
+      return {
+        ...rest,
+        ...prediccion_especifica
+      };
+    });
+
+    const headers = Object.keys(flattenedData[0]);
+    
+    const rows = flattenedData.map((obj: any) => 
+      headers.map(header => {
+        const value = obj[header];
+        // Si el valor es un número, lo formateamos para evitar problemas con comas decimales
+        return typeof value === 'number' ? value.toFixed(6) : `"${value}"`;
+      }).join(',')
+    );
+
+    content = [headers.join(','), ...rows].join('\n');
     contentType = 'text/csv';
   }
 
@@ -34,6 +54,7 @@ const exportData = (data: any, type: 'json' | 'csv', filename: string) => {
   link.href = url;
   link.download = `${filename}.${type}`;
   link.click();
+  URL.revokeObjectURL(url); // Limpieza de memoria
 };
 
 // Componente Tooltip Estilo Post-it
