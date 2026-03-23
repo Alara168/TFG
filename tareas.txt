@@ -12,13 +12,3 @@ la velocidad dependa únicamente del modelo de IA. Se puede implementar hilos pa
 Hacer responsive todo
 
 Revisar los TODO
-
----------------------------------------------
-| CARGA RECURSOS IA:      949.47 ms |
-| EXTRACCIÓN (SMDA):    21454.06 ms |
-| INFERENCIA TORCH:        23.84 ms |
-| GUARDADO GLOBAL:         59.54 ms |
-| ASM + BULK DETAILS:       6.20 ms |
----------------------------------------------
-| TOTAL POST ENDPOINT:  22516.91 ms |
----------------------------------------------
