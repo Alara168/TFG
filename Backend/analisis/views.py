@@ -24,13 +24,6 @@ from rest_framework.permissions import IsAdminUser
 from datetime import timedelta
 import GPUtil
 
-RECURSOS_IA = None
-
-def obtener_recursos_cache():
-    global RECURSOS_IA
-    if RECURSOS_IA is None:
-        RECURSOS_IA = get_resources()
-    return RECURSOS_IA
 
 class AnalizarBinarioView(APIView):
     permission_classes = [IsAuthenticated]
@@ -62,32 +55,32 @@ class AnalizarBinarioView(APIView):
             registrar_log(request.user, 'UPLOAD', "Intento de subida de archivo no PE", request)
             return Response({
                 "error": "Tipo de archivo no soportado.",
-                "detalle": "El modelo solo acepta ejecutables de Windows (PE) válidos."
+                "detalle": "El modelo solo acepta ejecutables de Windows (Portable Executable) válidos."
             }, status=415)
 
         user_actual = request.user 
         h = calcular_sha256(file_obj)
 
-        # 1. BUSQUEDA GLOBAL: Caché de base de datos por Hash
+        # 1. BUSQUEDA GLOBAL: ¿Alguien ha analizado este archivo ya?
         analisis_obj = Analisis.objects.filter(hash_sha256=h).first()
 
         if not analisis_obj:
-            # --- PROCESAMIENTO DE IA OPTIMIZADO ---
-            # Carga perezosa del modelo (solo la primera vez)
-            model, pipeline = obtener_recursos_ia()
-            
-            # Extracción de características
+            # --- PROCESAMIENTO DE IA (Solo si el hash es nuevo) ---
+            model, pipeline = get_resources()
             raw_feats, addrs = extract_features(file_obj)
+            nodes = [{"id": addr, "label": f"{addr[:8]}"} for addr in addrs]
+            # Creamos algunas aristas aleatorias o secuenciales para probar la visualización
+            edges = []
+            if len(nodes) > 1:
+                for i in range(len(nodes) - 1):
+                    edges.append({"source": nodes[i]["id"], "target": nodes[i+1]["id"]})
+    
+            grafo_inicial = {"nodes": nodes, "edges": edges}
             
             if raw_feats is None or len(raw_feats) == 0:
                 return Response({"error": "Error al procesar el binario o extraer funciones."}, status=422)
 
-            # Grafo inicial (Nodes/Edges)
-            nodes = [{"id": addr, "label": f"{addr[:8]}"} for addr in addrs]
-            edges = [{"source": nodes[i]["id"], "target": nodes[i+1]["id"]} for i in range(len(nodes) - 1)] if len(nodes) > 1 else []
-            grafo_inicial = {"nodes": nodes, "edges": edges}
-
-            # Inferencia con Torch (eval mode para velocidad)
+            # Inferencia con Pandas y Torch
             df = pd.DataFrame(raw_feats)
             for col in pipeline['feature_cols']:
                 if col not in df.columns: df[col] = 0
@@ -96,30 +89,34 @@ class AnalizarBinarioView(APIView):
             scaled_feats = pipeline['scaler'].transform(df.astype(float))
             bag_tensor = torch.tensor(scaled_feats, dtype=torch.float32)
 
-            model.eval() # IMPORTANTE: Modo evaluación
             with torch.no_grad():
+                # El forward devuelve: logits_global, pesos_atencion, probs_instancias
                 logits_global, A, probs_instancias_tensor = model(bag_tensor)
                 
                 probs_global = torch.sigmoid(logits_global).cpu().numpy()[0]
                 probs_instancias = probs_instancias_tensor.cpu().numpy()
                 attn = A.cpu().numpy()[0]
 
-            # Lógica de clasificación
             clases_nombres = pipeline['nombres']
             probs_dict = {n: float(p) for n, p in zip(clases_nombres, probs_global)}
+            
             idx_max = probs_global.argmax()
             confianza_max = float(probs_global[idx_max])
             suma_otras = sum(v for k, v in probs_dict.items() if k != "Benigno")
 
             if confianza_max < 0.4 and suma_otras < 0.5:
+                # Forzamos a Benigno
                 resultado_final = "Benigno"
+                # Calculamos la suma del resto de categorías
+                
+                # Ajustamos el diccionario
                 probs_dict["Benigno"] = 1.0 - suma_otras
                 confianza_final = float(probs_dict["Benigno"])
             else:
                 resultado_final = clases_nombres[idx_max]
                 confianza_final = confianza_max
             
-            # Guardar el Análisis Global (Una sola transacción)
+            # Guardar el Análisis Global usando las variables calculadas
             analisis_obj = Analisis.objects.create(
                 nombre_fichero=file_obj.name, 
                 hash_sha256=h, 
@@ -130,38 +127,29 @@ class AnalizarBinarioView(APIView):
                 call_graph_json = grafo_inicial
             )
 
-            # --- OPTIMIZACIÓN DE DETALLES (Bulk Create) ---
-            detalles_batch = []
+            # Guardar el TOP 20 de funciones por atención (Explicabilidad)
             top_i = attn.argsort()[-20:][::-1]
-            
-            # Leemos el archivo una sola vez a memoria para desensamblar más rápido
-            file_obj.seek(0)
-            file_data = file_obj.read()
-
             for i in top_i:
-                # La función ahora recibe los bytes directamente para no reabrir el archivo
-                asm_code = desensamblar_funcion(file_data, addrs[i]) 
-                
+                asm_code = desensamblar_funcion(file_obj, addrs[i])
                 set_probs = {clases_nombres[j]: float(probs_instancias[i][j]) for j in range(len(clases_nombres))}
-                
-                detalles_batch.append(DetalleFuncion(
+                DetalleFuncion.objects.create(
                     analisis=analisis_obj, 
                     direccion_memoria=addrs[i], 
                     atencion_score=float(attn[i]), 
                     prediccion_especifica=set_probs,
                     codigo_desensamblado=asm_code
-                ))
-            
-            # Inserción masiva en BD (1 sola query en lugar de 20)
-            DetalleFuncion.objects.bulk_create(detalles_batch)
+                )
         
-        # 2. VINCULACIÓN Y AUDITORÍA
+        # 2. VINCULACIÓN: Crear la relación entre el usuario actual y el análisis
+        # Usamos update_or_create por si el usuario re-sube el mismo archivo, 
+        # así actualizamos la fecha de su historial personal.
         subida_rel, created = Subida.objects.update_or_create(
             usuario=user_actual,
             analisis=analisis_obj,
             defaults={'nombre_fichero_personalizado': file_obj.name}
         )
 
+        # 3. AUDITORÍA Y RESPUESTA
         log_msg = f"Subida exitosa: {file_obj.name}" if created else f"Re-subida (caché): {file_obj.name}"
         LogActividad.objects.create(
             usuario=user_actual, 
