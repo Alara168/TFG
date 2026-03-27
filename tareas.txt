@@ -1,11 +1,18 @@
 Hacer más análisis para poder realizar el gráfico de tendencias
-Botón para poder reentrenar el modelo en LORCA y que se actualicen los datos de precision recall y eso en la BD
 
 Tareas:
 
     - Mirar qué hacer con los botones de tick y x en la parte de Gestión del Dataset em el dashboard de admin
-    - Exportar informe técnico en PDF
-    
+    - Poner dentro de la bola la atención y dejar debajo la dirección de memoria
+    - Poner el título como Grafo de Depndencias: putty.exe
+    - Poner una interrogación para explicar lo que es la atención en análisis
+    - Bajar lo de la dirección de memoria que aparece al hacer clicl en una bola y poner lo del filtro en la barra izquierda
+    - Poder ver qué usuarios son los que se han conectado.
+    - Poner una ventana para ver el dataset y que permita filtrar y esas cosas. 
+    - Revisar la gráfica de cómo se ve la gráfica de utilización de recursos y quitar el número que sale cuando haces hver encima de las gráficas
+    - Parte intermedia para demostar que realmente se hace algo con una lista de pasos y que vaya diciendo  lo que está pasando en cada momento y que si está en la base que aun así tarde 5 segundos para que el usuario tenga tiempo de verlo
+    - Exportar informe técnico en PDF con el grafo y la información por defecto y que sea igual en todos los casos
+
 En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
 la velocidad dependa únicamente del modelo de IA. Se puede implementar hilos para aumentar la velocidad?
 
