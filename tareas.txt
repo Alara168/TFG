@@ -1,8 +1,9 @@
 Hacer más análisis para poder realizar el gráfico de tendencias
 Botón para poder reentrenar el modelo en LORCA y que se actualicen los datos de precision recall y eso en la BD
 
-Crear endpoints de las cosas que son necesarias:
+Tareas:
 
+    - Mirar qué hacer con los botones de tick y x en la parte de Gestión del Dataset em el dashboard de admin
     - Exportar informe técnico en PDF
     
 En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
