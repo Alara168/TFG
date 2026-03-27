@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { FileText, AlertTriangle, Clock, Upload, Eye, Loader2, LogOut} from 'lucide-react';
+import { FileText, Upload, Eye, Loader2, LogOut } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { apiClient } from '../services/api.client';
 import { authService } from '../services/auth.service';
@@ -24,30 +24,15 @@ const MALWARE_COLORS = {
   intrusion: '#a855f7',
 };
 
-const trendData = [
-  { month: 'Ene', Ransom: 12, Financiero: 8, Sistema: 5, Intrusion: 3, Benigno: 40 },
-  { month: 'Feb', Ransom: 19, Financiero: 14, Sistema: 7, Intrusion: 5, Benigno: 35 },
-  { month: 'Mar', Ransom: 15, Financiero: 18, Sistema: 12, Intrusion: 8, Benigno: 42 },
-  { month: 'Abr', Ransom: 25, Financiero: 12, Sistema: 10, Intrusion: 12, Benigno: 38 },
-  { month: 'May', Ransom: 22, Financiero: 20, Sistema: 15, Intrusion: 10, Benigno: 45 },
-  { month: 'Jun', Ransom: 30, Financiero: 25, Sistema: 18, Intrusion: 15, Benigno: 30 },
-];
-
 export function UserDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [history, setHistory] = useState<AnalysisRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const location = useLocation();
 
   useEffect(() => {
-    // 1. Verificamos que exista el error
     if (location.state?.error) {
-      // 2. Ejecutamos el toast
       toast.error(location.state.error);
-      console.log("Error:", location.state.error);
-      
-      // 3. Limpiamos el estado de la navegación de forma "limpia" para React
-      // Esto evita que el toast vuelva a salir si el usuario refresca la página
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, location.pathname, navigate]);
@@ -69,6 +54,47 @@ export function UserDashboard() {
     fetchHistorial();
   }, []);
 
+  // --- PROCESAMIENTO DINÁMICO CORREGIDO ---
+  const dynamicTrendData = useMemo(() => {
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    
+    // Si no hay datos, devolvemos un array con el mes actual vacío para que el gráfico no rompa
+    if (history.length === 0) {
+      return [{ month: monthNames[new Date().getMonth()], Ransom: 0, Financiero: 0, Sistema: 0, Intrusion: 0, Benigno: 0 }];
+    }
+
+    const agrupado = history.reduce((acc: any, item) => {
+      const fecha = new Date(item.fecha_subida);
+      const mesNombre = monthNames[fecha.getMonth()];
+      const anio = fecha.getFullYear();
+      const key = `${anio}-${fecha.getMonth().toString().padStart(2, '0')}`;
+
+      if (!acc[key]) {
+        acc[key] = { 
+          month: mesNombre,
+          Ransom: 0, 
+          Financiero: 0, 
+          Sistema: 0, 
+          Intrusion: 0, 
+          Benigno: 0,
+          sortKey: key 
+        };
+      }
+
+      const res = item.resultado_clase.toLowerCase();
+      if (res.includes('benigno')) acc[key].Benigno++;
+      else if (res.includes('ransom')) acc[key].Ransom++;
+      else if (res.includes('financiero')) acc[key].Financiero++;
+      else if (res.includes('sistema') || res.includes('herramientas')) acc[key].Sistema++;
+      else if (res.includes('intrusion')) acc[key].Intrusion++;
+
+      return acc;
+    }, {});
+
+    // Ordenar por año-mes y devolver
+    return Object.values(agrupado).sort((a: any, b: any) => a.sortKey.localeCompare(b.sortKey));
+  }, [history]);
+
   const getStatusColor = (status: string) => {
     const s = status.toLowerCase();
     if (s.includes('benigno')) return 'text-[#22c55e]';
@@ -80,9 +106,7 @@ export function UserDashboard() {
   };
 
   const getScoreColor = (score: number, resultado: string) => {
-    // Si es benigno, forzamos verde
     if (resultado.toLowerCase().includes('benigno')) return 'text-[#22c55e]';
-
     const s = score * 100;
     if (s >= 80) return 'text-destructive';
     if (s >= 50) return 'text-accent';
@@ -90,16 +114,12 @@ export function UserDashboard() {
   };
 
   const totalFiles = history.length;
-  // Ahora filtramos basándonos en el resultado final que viene del backend
-  const highRiskCount = history.filter(item => 
-    !item.resultado_clase.toLowerCase().includes('benigno')
-  ).length;
+  const highRiskCount = history.filter(item => !item.resultado_clase.toLowerCase().includes('benigno')).length;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="bg-card border-b border-border px-8 py-4">
         <div className="flex items-center justify-between">
-          {/* Contenedor Izquierdo: Logo */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-primary" />
@@ -109,23 +129,12 @@ export function UserDashboard() {
               <p className="text-xs text-muted-foreground">Panel de Análisis</p>
             </div>
           </div>
-
-          {/* Contenedor Derecho: Botones */}
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/upload')}
-              className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/50 transition-all flex items-center gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              Nuevo Análisis
+            <button onClick={() => navigate('/upload')} className="bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/50 transition-all flex items-center gap-2">
+              <Upload className="w-4 h-4" /> Nuevo Análisis
             </button>
-            
-            <button
-              onClick={() => authService.logout()}
-              className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/50 transition-all flex items-center gap-2 border border-border"
-            >
-              <LogOut className="w-4 h-4" />
-              Cerrar Sesión
+            <button onClick={() => authService.logout()} className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/50 transition-all flex items-center gap-2 border border-border">
+              <LogOut className="w-4 h-4" /> Cerrar Sesión
             </button>
           </div>
         </div>
@@ -143,19 +152,17 @@ export function UserDashboard() {
           </div>
           <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
             <h3 className="text-sm text-muted-foreground mb-2">Tasa de Detección</h3>
-            <p className="text-3xl font-bold">
-              {totalFiles > 0 ? ((highRiskCount / totalFiles) * 100).toFixed(1) : 0}%
-            </p>
+            <p className="text-3xl font-bold">{totalFiles > 0 ? ((highRiskCount / totalFiles) * 100).toFixed(1) : 0}%</p>
           </div>
         </div>
 
         <div className="bg-card border border-border rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">Tendencias de Amenazas</h2>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={trendData}>
+            <LineChart data={dynamicTrendData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis dataKey="month" stroke="#888" />
-              <YAxis stroke="#888" />
+              <XAxis dataKey="month" stroke="#888" fontSize={12} />
+              <YAxis stroke="#888" fontSize={12} />
               <Tooltip contentStyle={{ backgroundColor: '#1E1E1E', border: '1px solid #333', borderRadius: '8px' }} />
               <Legend />
               <Line name="Otros/Ransom" type="monotone" dataKey="Ransom" stroke={MALWARE_COLORS.ransomware} strokeWidth={2} />
@@ -189,14 +196,10 @@ export function UserDashboard() {
                     <tr key={item.id_analisis} className="border-b border-border hover:bg-secondary/30 cursor-pointer" onClick={() => navigate(`/analisis/${item.id_analisis}`)}>
                       <td className="py-4 px-4 font-mono text-sm">{item.nombre_fichero_personalizado}</td>
                       <td className="py-4 px-4">
-                        <span className={`text-sm font-bold ${getStatusColor(item.resultado_clase)}`}>
-                          {item.resultado_clase}
-                        </span>
+                        <span className={`text-sm font-bold ${getStatusColor(item.resultado_clase)}`}>{item.resultado_clase}</span>
                       </td>
                       <td className="py-4 px-4">
-                        <span className={`text-sm font-bold ${getScoreColor(item.confianza_global, item.resultado_clase)}`}>
-                          {(item.confianza_global * 100).toFixed(2)}%
-                        </span>
+                        <span className={`text-sm font-bold ${getScoreColor(item.confianza_global, item.resultado_clase)}`}>{(item.confianza_global * 100).toFixed(2)}%</span>
                       </td>
                       <td className="py-4 px-4">
                         <button className="text-primary hover:text-primary/80 flex items-center gap-1 text-sm font-semibold" onClick={(e) => { e.stopPropagation(); navigate(`/analisis/${item.id_analisis}`); }}>

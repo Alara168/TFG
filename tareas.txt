@@ -4,10 +4,11 @@ Botón para poder reentrenar el modelo en LORCA y que se actualicen los datos de
 Crear endpoints de las cosas que son necesarias:
 
     - Exportar informe técnico en PDF
-    - Añadir encriptamiento a las contraseñas para que se envíen y almacenen encriptadas
     
 En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
 la velocidad dependa únicamente del modelo de IA. Se puede implementar hilos para aumentar la velocidad?
 
+Reentrenar el modelo para que funcione sin la categoría Otros/Ransomware y mirar si de esa forma funciona mejor para predecir Benigno
+con los instaladores. Mirar qué pasaría si le pasas ransomware real 
 
 Revisar los TODO
