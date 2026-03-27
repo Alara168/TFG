@@ -32,11 +32,13 @@ export function Registro() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      {/* Fondo binario */}
-      <div className="absolute inset-0 opacity-10 pointer-events-none">
-        <div className="font-mono text-[#00FF41] text-xs leading-tight overflow-hidden h-full">
-          {Array.from({ length: 50 }).map((_, i) => (
-            <div key={i}>{Array.from({ length: 120 }).map(() => Math.random() > 0.5 ? '1' : '0').join('')}</div>
+      {/* Fondo binario de pantalla completa */}
+      <div className="fixed inset-0 opacity-10 pointer-events-none z-0 overflow-hidden select-none">
+        <div className="font-mono text-[#00FF41] text-xs leading-none h-full w-full break-all">
+          {Array.from({ length: 100 }).map((_, i) => (
+            <div key={i} className="whitespace-nowrap overflow-hidden">
+              {Array.from({ length: 300 }).map(() => (Math.random() > 0.5 ? '1' : '0')).join('')}
+            </div>
           ))}
         </div>
       </div>

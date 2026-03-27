@@ -9,6 +9,5 @@ Crear endpoints de las cosas que son necesarias:
 En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
 la velocidad dependa únicamente del modelo de IA. Se puede implementar hilos para aumentar la velocidad?
 
-Hacer responsive todo
 
 Revisar los TODO

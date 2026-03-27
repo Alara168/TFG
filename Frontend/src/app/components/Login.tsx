@@ -35,7 +35,16 @@ export function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      {/* ... (código del fondo binario igual) */}
+      {/* Fondo binario de pantalla completa */}
+      <div className="fixed inset-0 opacity-10 pointer-events-none z-0 overflow-hidden select-none">
+        <div className="font-mono text-[#00FF41] text-xs leading-none h-full w-full break-all">
+          {Array.from({ length: 100 }).map((_, i) => (
+            <div key={i} className="whitespace-nowrap overflow-hidden">
+              {Array.from({ length: 300 }).map(() => (Math.random() > 0.5 ? '1' : '0')).join('')}
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="w-full max-w-md px-6 relative z-10">
         <div className="bg-card border border-border rounded-lg p-8 shadow-2xl">
