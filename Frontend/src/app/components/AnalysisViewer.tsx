@@ -13,6 +13,8 @@ const DESCRIPCIONES_CLASES: Record<string, string> = {
   "Herramientas/Sistema": "Herramientas de administración o de hacking que pueden ser usadas para ataques o pruebas de penetración."
 };
 
+const DESCRIPCION_ATENCION = "La puntuación de atención indica qué tan relevante es esta función para la decisión final del modelo. Un valor alto significa que el código de esta función contiene patrones críticos que definen el comportamiento malicioso o benigno.";
+
 const exportData = (data: any, type: 'json' | 'csv', filename: string) => {
   let content = "";
   let contentType = "";
@@ -22,28 +24,17 @@ const exportData = (data: any, type: 'json' | 'csv', filename: string) => {
     contentType = 'application/json';
   } else {
     if (!data || data.length === 0) return;
-
     const flattenedData = data.map((item: any) => {
       const { prediccion_especifica, ...rest } = item;
-      
-      // Retornamos un objeto nuevo que combina los datos base 
-      // con cada clave de la predicción (Benigno: 0.1, Malware: 0.9, etc.)
-      return {
-        ...rest,
-        ...prediccion_especifica
-      };
+      return { ...rest, ...prediccion_especifica };
     });
-
     const headers = Object.keys(flattenedData[0]);
-    
     const rows = flattenedData.map((obj: any) => 
       headers.map(header => {
         const value = obj[header];
-        // Si el valor es un número, lo formateamos para evitar problemas con comas decimales
         return typeof value === 'number' ? value.toFixed(6) : `"${value}"`;
       }).join(',')
     );
-
     content = [headers.join(','), ...rows].join('\n');
     contentType = 'text/csv';
   }
@@ -54,36 +45,32 @@ const exportData = (data: any, type: 'json' | 'csv', filename: string) => {
   link.href = url;
   link.download = `${filename}.${type}`;
   link.click();
-  URL.revokeObjectURL(url); // Limpieza de memoria
+  URL.revokeObjectURL(url);
 };
 
-// Componente Tooltip Estilo Post-it
 function PostItTooltip({ text, anchorRect }: { text: string, anchorRect: DOMRect | null }) {
   if (!anchorRect) return null;
+  
+  // Determinamos si el tooltip debe aparecer a la izquierda o derecha según la posición del ratón
+  const isRightSide = anchorRect.left > window.innerWidth / 2;
 
   return createPortal(
     <div 
       style={{ 
         position: 'fixed', 
         top: anchorRect.top, 
-        left: anchorRect.right + 20,
-        zIndex: 9999,
-        backgroundColor: '#fef3c7', 
+        left: isRightSide ? 'auto' : anchorRect.right + 20,
+        right: isRightSide ? (window.innerWidth - anchorRect.left) + 20 : 'auto',
+        zIndex: 9999, 
+        backgroundColor: '#fef3c7' 
       }}
       className="w-64 p-4 rounded-sm shadow-[5px_5px_15px_rgba(0,0,0,0.3)] border-l-4 border-yellow-500 animate-in fade-in slide-in-from-left-2 duration-200"
     >
       <div className="flex items-center gap-2 mb-2 border-b border-yellow-900/10 pb-1">
-        <span className="text-[10px] font-black uppercase tracking-widest text-yellow-800">Nota</span>
+        <span className="text-[10px] font-black uppercase tracking-widest text-yellow-800">Nota Informativa</span>
       </div>
-      <p className="text-[12px] leading-snug text-yellow-950 font-medium">
-        {text}
-      </p>
-      <div 
-        className="absolute top-4 -left-2 w-0 h-0 
-        border-t-[6px] border-t-transparent 
-        border-r-[8px] border-r-yellow-500 
-        border-b-[6px] border-b-transparent" 
-      />
+      <p className="text-[12px] leading-snug text-yellow-950 font-medium">{text}</p>
+      <div className={`absolute top-4 ${isRightSide ? '-right-2 border-l-[8px] border-l-yellow-500 rotate-180' : '-left-2 border-r-[8px] border-r-yellow-500'} w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent`} />
     </div>,
     document.body
   );
@@ -96,15 +83,14 @@ export function AnalysisViewer() {
   const [analysis, setAnalysis] = useState<any>(null);
   const [graphData, setGraphData] = useState<{nodes: any[], edges: any[]}>({ nodes: [], edges: [] });
   const [isLoading, setIsLoading] = useState(true);
-  const [attentionFilter, setAttentionFilter] = useState(0.01);
+  const [attentionFilter, setAttentionFilter] = useState(0.005);
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
-  
-  // --- NUEVOS ESTADOS PARA EL CÓDIGO ---
   const [codeData, setCodeData] = useState<string | null>(null);
   const [isCodeLoading, setIsCodeLoading] = useState(false);
-
-  const [hoveredClass, setHoveredClass] = useState<{ name: string, rect: DOMRect } | null>(null);
+  
+  // Estado unificado para tooltips (clases o atención)
+  const [activeTooltip, setActiveTooltip] = useState<{ text: string, rect: DOMRect } | null>(null);
 
   useEffect(() => {
     const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight });
@@ -112,12 +98,8 @@ export function AnalysisViewer() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Limpiar el código cuando se selecciona una función diferente
-  useEffect(() => {
-    setCodeData(null);
-  }, [selectedAddress]);
+  useEffect(() => { setCodeData(null); }, [selectedAddress]);
 
-  // --- FUNCIÓN PARA LLAMAR AL BACKEND ---
   const fetchFunctionCode = async () => {
     if (!selectedAddress || !id) return;
     setIsCodeLoading(true);
@@ -127,11 +109,8 @@ export function AnalysisViewer() {
         const data = await res.json();
         setCodeData(data.codigo);
       }
-    } catch (err) {
-      console.error("Error al obtener el código:", err);
-    } finally {
-      setIsCodeLoading(false);
-    }
+    } catch (err) { console.error("Error:", err); }
+    finally { setIsCodeLoading(false); }
   };
 
   const scaleFactor = useMemo(() => {
@@ -146,12 +125,8 @@ export function AnalysisViewer() {
     const malwareProbs = Object.entries(analysis.probabilidades_json)
       .filter(([name]) => name !== "Benigno")
       .map(([name, value]: any) => ({ name, value }));
-
     const topThreat = malwareProbs.reduce((prev, current) => (prev.value > current.value) ? prev : current);
-
-    if (topThreat.value >= 0.4) {
-      return { label: topThreat.name, color: "text-red-500", isMalware: true };
-    }
+    if (topThreat.value >= 0.4) return { label: topThreat.name, color: "text-red-500", isMalware: true };
     return { label: "Benigno", color: "text-primary", isMalware: false };
   }, [analysis]);
 
@@ -231,7 +206,7 @@ export function AnalysisViewer() {
             <ArrowLeft style={{ width: getFontSize(22), height: getFontSize(22) }} />
           </button>
           <div>
-            <h1 style={{ fontSize: getFontSize(20) }} className="font-black tracking-tight uppercase">
+            <h1 style={{ fontSize: getFontSize(18) }} className="font-black tracking-tight uppercase">
               Grafo de Dependencias: {analysis?.nombre_fichero}
             </h1>
             <p style={{ fontSize: getFontSize(10) }} className="text-white/40 font-mono tracking-tighter">
@@ -241,41 +216,21 @@ export function AnalysisViewer() {
         </div>
 
         <div className="flex gap-2">
-          <button 
-            onClick={() => exportData(analysis, 'json', 'analisis_completo')}
-            className="text-xs bg-white/5 px-3 py-1.5 rounded hover:bg-white/10"
-          >
-            Export JSON
-          </button>
-          <button 
-            onClick={() => exportData(analysis.detalles_funciones, 'csv', 'funciones_atencion')}
-            className="text-xs bg-primary/20 px-3 py-1.5 rounded hover:bg-primary/30"
-          >
-            Export CSV
-          </button>
+          <button onClick={() => exportData(analysis, 'json', 'analisis_completo')} className="text-xs bg-white/5 px-3 py-1.5 rounded hover:bg-white/10">Export JSON</button>
+          <button onClick={() => exportData(analysis.detalles_funciones, 'csv', 'funciones_atencion')} className="text-xs bg-primary/20 px-3 py-1.5 rounded hover:bg-primary/30">Export CSV</button>
         </div>
 
         <div className="flex items-center gap-8">
           <div className="text-right">
             <span style={{ fontSize: getFontSize(9) }} className="font-bold text-white/40 uppercase tracking-widest block">Veredicto Final</span>
-            <span style={{ fontSize: getFontSize(24) }} className={`font-black uppercase tracking-tighter ${verdict.color}`}>
-              {verdict.label}
-            </span>
+            <span style={{ fontSize: getFontSize(24) }} className={`font-black uppercase tracking-tighter ${verdict.color}`}>{verdict.label}</span>
           </div>
-          
           <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
             {verdict.isMalware ? <AlertTriangle className="text-red-500 w-5 h-5" /> : <ShieldCheck className="text-primary w-5 h-5" />}
-            <span style={{ fontSize: getFontSize(32) }} className={`font-black ${verdict.color}`}>
-              {(analysis?.confianza_global * 100).toFixed(1)}%
-            </span>
+            <span style={{ fontSize: getFontSize(32) }} className={`font-black ${verdict.color}`}>{(analysis?.confianza_global * 100).toFixed(1)}%</span>
           </div>
-
-          <button
-            onClick={() => authService.logout()}
-            className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/50 transition-all flex items-center gap-2 border border-white/10"
-          >
-            <LogOut className="w-4 h-4" />
-            Cerrar Sesión
+          <button onClick={() => authService.logout()} className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/50 transition-all flex items-center gap-2 border border-white/10">
+            <LogOut className="w-4 h-4" /> Cerrar Sesión
           </button>
         </div>
       </header>
@@ -283,15 +238,15 @@ export function AnalysisViewer() {
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
         <aside className="w-64 bg-card/20 border-r border-white/10 p-5 flex flex-col z-30 shrink-0 overflow-y-auto scrollbar-hide">
           <h3 style={{ fontSize: getFontSize(14) }} className="font-black uppercase tracking-widest mb-8 text-white/60">Análisis</h3>
-          <div className="space-y-6 pb-4">
+          
+          <div className="space-y-6 pb-8 border-b border-white/10 mb-8">
             {analysis?.probabilidades_json && Object.entries(analysis.probabilidades_json)
               .filter(([name]) => name !== "Benigno")
               .map(([name, value]: any) => (
               <div 
-                key={name} 
-                className="group relative cursor-help"
-                onMouseEnter={(e) => setHoveredClass({ name, rect: e.currentTarget.getBoundingClientRect() })}
-                onMouseLeave={() => setHoveredClass(null)}
+                key={name} className="group relative cursor-help"
+                onMouseEnter={(e) => setActiveTooltip({ text: DESCRIPCIONES_CLASES[name], rect: e.currentTarget.getBoundingClientRect() })}
+                onMouseLeave={() => setActiveTooltip(null)}
               >
                 <div className="flex justify-between items-end mb-1.5">
                   <div className="flex items-center gap-2">
@@ -306,29 +261,30 @@ export function AnalysisViewer() {
               </div>
             ))}
           </div>
-        </aside>
 
-        {hoveredClass && (
-          <PostItTooltip 
-            text={DESCRIPCIONES_CLASES[hoveredClass.name] || ""} 
-            anchorRect={hoveredClass.rect} 
-          />
-        )}
-
-        <main className="flex-1 relative bg-[radial-gradient(circle_at_50%_50%,_#0a0a0a_0%,_#050505_100%)] overflow-y-auto overflow-x-hidden scrollbar-hide flex flex-col items-center">
-          <div className="sticky top-4 left-4 z-20 self-start w-fit bg-[#111]/80 backdrop-blur-md border border-white/10 p-4 rounded-xl ml-4 shrink-0">
-            <div className="flex items-center gap-3">
-              <Filter style={{ width: getFontSize(16), height: getFontSize(16) }} className="text-primary" />
-              <input 
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+               <Filter style={{ width: getFontSize(14), height: getFontSize(14) }} className="text-primary" />
+               <span style={{ fontSize: getFontSize(10) }} className="font-black uppercase tracking-widest text-white/40">Filtro Atención</span>
+            </div>
+            <input 
                 type="range" min="0.005" max="0.1" step="0.005" 
                 value={attentionFilter} 
                 onChange={(e) => setAttentionFilter(parseFloat(e.target.value))}
-                className="w-32 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-              <span style={{ fontSize: getFontSize(14) }} className="font-black font-mono text-primary">{(attentionFilter).toFixed(3)}</span>
+                className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+            />
+            <div className="flex justify-between font-mono text-primary font-black" style={{ fontSize: getFontSize(14) }}>
+                <span>Umbral:</span>
+                <span>{(attentionFilter).toFixed(3)}</span>
             </div>
           </div>
+        </aside>
 
+        {activeTooltip && (
+          <PostItTooltip text={activeTooltip.text} anchorRect={activeTooltip.rect} />
+        )}
+
+        <main className="flex-1 relative bg-[radial-gradient(circle_at_50%_50%,_#0a0a0a_0%,_#050505_100%)] overflow-y-auto overflow-x-hidden scrollbar-hide flex flex-col items-center">
           <div className="flex-1 w-full flex items-start justify-center py-10">
             <svg width={availableWidth} height={svgHeight} className="overflow-visible">
               <defs>
@@ -354,17 +310,9 @@ export function AnalysisViewer() {
                 if (!pos) return null;
                 const isSelected = selectedAddress === node.id;
                 
-                // Formateamos la atención para que quepa dentro (ej: 0.052)
-                const attentionText = node.atencion_score.toFixed(3);
-                
                 return (
-                  <g 
-                    key={node.id} 
-                    transform={`translate(${pos.x}, ${pos.y})`} 
-                    onClick={() => setSelectedAddress(node.id)} 
-                    className="cursor-pointer group"
-                  >
-                    {/* CÍRCULO PRINCIPAL */}
+                  <g key={node.id} transform={`translate(${pos.x}, ${pos.y})`} 
+                      onClick={() => setSelectedAddress(node.id)} className="cursor-pointer group">
                     <circle 
                       r={nodeRadius} 
                       fill={getNodeColor(node.atencion_score)} 
@@ -372,27 +320,13 @@ export function AnalysisViewer() {
                       stroke={isSelected ? "#fff" : "rgba(255,255,255,0.1)"}
                       strokeWidth={isSelected ? "3" : "1.5"}
                     />
-
-                    {/* TEXTO DENTRO DE LA BOLA: ATENCIÓN */}
-                    <text 
-                      y="4" 
-                      textAnchor="middle" 
-                      fill="#fff" 
-                      style={{ fontSize: getFontSize(11) }} 
-                      className="font-black font-mono pointer-events-none"
-                    >
-                      {attentionText}
+                    <text y="4" textAnchor="middle" fill="#fff" 
+                      style={{ fontSize: getFontSize(11) }} className="font-black font-mono pointer-events-none">
+                      {node.atencion_score.toFixed(3)}
                     </text>
-
-                    {/* TEXTO DEBAJO DE LA BOLA: DIRECCIÓN DE MEMORIA COMPLETA */}
-                    <text 
-                      y={nodeRadius + 20} 
-                      textAnchor="middle" 
-                      fill={isSelected ? "#fff" : "rgba(255,255,255,0.6)"} 
-                      style={{ fontSize: getFontSize(10) }} 
-                      className="font-bold font-mono tracking-tighter uppercase"
-                    >
-                      {node.id} {/* Aquí ya no usamos substring, mostramos el ID completo */}
+                    <text y={nodeRadius + 22} textAnchor="middle" fill={isSelected ? "#fff" : "rgba(255,255,255,0.5)"} 
+                      style={{ fontSize: getFontSize(10) }} className="font-bold font-mono uppercase tracking-tighter">
+                      {node.id}
                     </text>
                   </g>
                 );
@@ -401,7 +335,6 @@ export function AnalysisViewer() {
           </div>
         </main>
 
-        {/* INSPECTOR DERECHO */}
         {selectedAddress && (
           <aside className="w-80 bg-card border-l border-white/10 p-6 z-40 shrink-0 overflow-y-auto scrollbar-hide">
             <div className="flex items-center justify-between mb-8">
@@ -411,21 +344,31 @@ export function AnalysisViewer() {
               <button onClick={() => setSelectedAddress(null)} className="text-white/40 hover:text-white">✕</button>
             </div>
             <div className="space-y-8">
-              <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                <span style={{ fontSize: getFontSize(9) }} className="text-primary font-black uppercase tracking-widest block mb-1.5">Dirección</span>
-                <code style={{ fontSize: getFontSize(13) }} className="font-mono break-all leading-none">{selectedAddress}</code>
-              </div>
+              
               <div>
-                <span style={{ fontSize: getFontSize(9) }} className="text-white/40 font-black uppercase tracking-widest block mb-1">Atención</span>
+                <div className="flex items-center gap-2 mb-1 group cursor-help w-fit"
+                  onMouseEnter={(e) => setActiveTooltip({ text: DESCRIPCION_ATENCION, rect: e.currentTarget.getBoundingClientRect() })}
+                  onMouseLeave={() => setActiveTooltip(null)}
+                >
+                  <span style={{ fontSize: getFontSize(9) }} className="text-white/40 font-black uppercase tracking-widest block">Atención</span>
+                  <HelpCircle style={{ width: getFontSize(12), height: getFontSize(12) }} className="text-white/20 group-hover:text-primary" />
+                </div>
                 <p style={{ fontSize: getFontSize(36) }} className="font-black tracking-tighter">{selectedDetail?.atencion_score.toFixed(5)}</p>
               </div>
+
               <div className="space-y-4">
                 <span style={{ fontSize: getFontSize(9) }} className="text-white/40 font-black uppercase tracking-widest block border-b border-white/5 pb-1.5">Predicciones</span>
                 {selectedDetail?.prediccion_especifica && Object.entries(selectedDetail.prediccion_especifica)
                   .map(([clase, val]: any) => (
-                  <div key={clase} className="p-3 bg-white/5 rounded-xl border border-white/5">
+                  <div key={clase} className="p-3 bg-white/5 rounded-xl border border-white/5 group relative cursor-help"
+                    onMouseEnter={(e) => setActiveTooltip({ text: DESCRIPCIONES_CLASES[clase], rect: e.currentTarget.getBoundingClientRect() })}
+                    onMouseLeave={() => setActiveTooltip(null)}
+                  >
                     <div className="flex justify-between font-black mb-1.5 uppercase" style={{ fontSize: getFontSize(10) }}>
-                      <span>{clase}</span>
+                      <div className="flex items-center gap-1">
+                        <span>{clase}</span>
+                        <HelpCircle style={{ width: getFontSize(10), height: getFontSize(10) }} className="text-white/10 group-hover:text-primary" />
+                      </div>
                       <span className="text-primary">{(val * 100).toFixed(1)}%</span>
                     </div>
                     <div className="h-1 bg-white/10 rounded-full overflow-hidden">
@@ -435,26 +378,21 @@ export function AnalysisViewer() {
                 ))}
               </div>
 
-              {/* --- NUEVA SECCIÓN DE CÓDIGO ABAJO DE LOS PORCENTAJES --- */}
+              <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+                <span style={{ fontSize: getFontSize(9) }} className="text-primary font-black uppercase tracking-widest block mb-1.5">Dirección</span>
+                <code style={{ fontSize: getFontSize(13) }} className="font-mono break-all leading-none">{selectedAddress}</code>
+              </div>
+
               <div className="pt-4 border-t border-white/10">
                 {!codeData ? (
-                  <button 
-                    onClick={fetchFunctionCode}
-                    disabled={isCodeLoading}
-                    className="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl font-black uppercase text-[11px] flex items-center justify-center gap-2 transition-all"
-                  >
+                  <button onClick={fetchFunctionCode} disabled={isCodeLoading} className="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl font-black uppercase text-[11px] flex items-center justify-center gap-2 transition-all">
                     {isCodeLoading ? <Loader2 className="animate-spin w-4 h-4" /> : "Ver código desensamblado"}
                   </button>
                 ) : (
                   <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex justify-between items-center">
                       <span style={{ fontSize: getFontSize(9) }} className="text-primary font-black uppercase tracking-widest">Ensamblador (ASM)</span>
-                      <button 
-                        onClick={() => setCodeData(null)} 
-                        className="text-[10px] text-white/40 hover:text-white underline"
-                      >
-                        Ocultar
-                      </button>
+                      <button onClick={() => setCodeData(null)} className="text-[10px] text-white/40 hover:text-white underline">Ocultar</button>
                     </div>
                     <pre className="bg-black/50 p-4 rounded-xl border border-white/5 font-mono text-[10px] text-emerald-400 overflow-x-auto max-h-96 scrollbar-hide shadow-inner">
                       <code>{codeData}</code>
