@@ -16,6 +16,8 @@ const DESCRIPCIONES_CLASES: Record<string, string> = {
   "Herramientas/Sistema": "Herramientas de administración o de hacking que pueden ser usadas para ataques o pruebas de penetración."
 };
 
+const DESCRIPCION_ATENCION = "La puntuación de atención indica qué tan relevante es esta función para la decisión final del modelo. Un valor alto significa que el código de esta función contiene patrones críticos que definen el comportamiento malicioso o benigno.";
+
 const GLOSARIO_ATENCION = "La 'Atención Neuronal' es una técnica de IA que permite al modelo resaltar qué partes del código (funciones) han sido determinantes para su decisión. Una puntuación alta significa que esa función contiene patrones de comportamiento altamente característicos de su categoría.";
 
 const METODOLOGIA = "Este análisis se basa en el examen de las Atenciones de una red neuronal profunda que procesa el grafo de flujo de control del binario, permitiendo detectar amenazas incluso si el código ha sido ofuscado.";
@@ -440,49 +442,126 @@ export function AnalysisViewer() {
           </div>
         </main>
 
-        {selectedAddress && (
-          <aside className="w-80 bg-card border-l border-white/10 p-6 z-40 shrink-0 overflow-y-auto scrollbar-hide">
-            <div className="flex items-center justify-between mb-8">
-              <h3 style={{ fontSize: getFontSize(16) }} className="flex items-center gap-2 font-black uppercase tracking-tight"><Cpu style={{ width: getFontSize(18), height: getFontSize(18) }} className="text-primary" /> Detalles</h3>
-              <button onClick={() => setSelectedAddress(null)} className="text-white/40 hover:text-white">✕</button>
-            </div>
-            <div className="space-y-8">
-              <div>
-                <span style={{ fontSize: getFontSize(9) }} className="text-white/40 font-black uppercase tracking-widest block mb-1">Atención</span>
-                <p style={{ fontSize: getFontSize(36) }} className="font-black tracking-tighter">{selectedDetail?.atencion_score.toFixed(5)}</p>
-              </div>
-              <div className="space-y-4">
-                <span style={{ fontSize: getFontSize(9) }} className="text-white/40 font-black uppercase tracking-widest block border-b border-white/5 pb-1.5">Predicciones</span>
-                {selectedDetail?.prediccion_especifica && Object.entries(selectedDetail.prediccion_especifica).map(([clase, val]: any) => (
-                  <div key={clase} className="p-3 bg-white/5 rounded-xl border border-white/5 group relative cursor-help" onMouseEnter={(e) => setActiveTooltip({ text: DESCRIPCIONES_CLASES[clase], rect: e.currentTarget.getBoundingClientRect() })} onMouseLeave={() => setActiveTooltip(null)}>
-                    <div className="flex justify-between font-black mb-1.5 uppercase" style={{ fontSize: getFontSize(10) }}>
-                      <div className="flex items-center gap-1"><span>{clase}</span></div>
-                      <span className="text-primary">{(val * 100).toFixed(1)}%</span>
-                    </div>
-                    <div className="h-1 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-primary/60" style={{ width: `${val * 100}%` }} /></div>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                <span style={{ fontSize: getFontSize(9) }} className="text-primary font-black uppercase tracking-widest block mb-1.5">Dirección</span>
-                <code style={{ fontSize: getFontSize(13) }} className="font-mono break-all leading-none">{selectedAddress}</code>
-              </div>
-              <div className="pt-4 border-t border-white/10">
-                {!codeData ? (
-                  <button onClick={fetchFunctionCode} disabled={isCodeLoading} className="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl font-black uppercase text-[11px] flex items-center justify-center gap-2 transition-all">
-                    {isCodeLoading ? <Loader2 className="animate-spin w-4 h-4" /> : "Ver ASM"}
+        {selectedAddress && (<aside className="w-80 bg-card border-l border-white/10 p-6 z-40 shrink-0 overflow-y-auto scrollbar-hide animate-in slide-in-from-right duration-300">
+                {/* Cabecera de la barra lateral */}
+                <div className="flex items-center justify-between mb-8">
+                  <h3 style={{ fontSize: getFontSize(16) }} className="flex items-center gap-2 font-black uppercase tracking-tight">
+                    <Cpu style={{ width: getFontSize(18), height: getFontSize(18) }} className="text-primary" /> 
+                    Detalles
+                  </h3>
+                  <button 
+                    onClick={() => setSelectedAddress(null)} 
+                    className="p-1 hover:bg-white/10 rounded-md text-white/40 hover:text-white transition-colors"
+                  >
+                    ✕
                   </button>
-                ) : (
-                  <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="flex justify-between items-center"><span style={{ fontSize: getFontSize(9) }} className="text-primary font-black uppercase tracking-widest">ASM</span><button onClick={() => setCodeData(null)} className="text-[10px] text-white/40 underline">Ocultar</button></div>
-                    <pre className="bg-black/50 p-4 rounded-xl border border-white/5 font-mono text-[9px] text-emerald-400 overflow-x-auto max-h-96 scrollbar-hide shadow-inner"><code>{codeData}</code></pre>
+                </div>
+
+                <div className="space-y-8">
+                  {/* Sección 1: Puntuación de Atención con Tooltip */}
+                  <div>
+                    <div 
+                      className="flex items-center gap-2 mb-1 group/help cursor-help w-fit"
+                      onMouseEnter={(e) => setActiveTooltip({ 
+                        text: DESCRIPCION_ATENCION, 
+                        rect: e.currentTarget.getBoundingClientRect() 
+                      })}
+                      onMouseLeave={() => setActiveTooltip(null)}
+                    >
+                      <span style={{ fontSize: getFontSize(9) }} className="text-white/40 font-black uppercase tracking-widest block">
+                        Atención
+                      </span>
+                      <HelpCircle 
+                        style={{ width: getFontSize(12), height: getFontSize(12) }} 
+                        className="text-white/20 group-hover/help:text-primary transition-colors" 
+                      />
+                    </div>
+                    <p style={{ fontSize: getFontSize(36) }} className="font-black tracking-tighter leading-none">
+                      {selectedDetail?.atencion_score.toFixed(5)}
+                    </p>
                   </div>
-                )}
-              </div>
-            </div>
-          </aside>
-        )}
+
+                  {/* Sección 2: Predicciones Específicas por Categoría */}
+                  <div className="space-y-4">
+                    <span style={{ fontSize: getFontSize(9) }} className="text-white/40 font-black uppercase tracking-widest block border-b border-white/5 pb-1.5">
+                      Predicciones de Clase
+                    </span>
+                    
+                    {selectedDetail?.prediccion_especifica && Object.entries(selectedDetail.prediccion_especifica).map(([clase, val]: any) => (
+                      <div 
+                        key={clase} 
+                        className="p-3 bg-white/5 rounded-xl border border-white/5 group/row relative cursor-help hover:bg-white/[0.08] transition-colors"
+                        onMouseEnter={(e) => setActiveTooltip({ 
+                          text: DESCRIPCIONES_CLASES[clase] || "Sin descripción disponible", 
+                          rect: e.currentTarget.getBoundingClientRect() 
+                        })}
+                        onMouseLeave={() => setActiveTooltip(null)}
+                      >
+                        <div className="flex justify-between font-black mb-2 uppercase" style={{ fontSize: getFontSize(10) }}>
+                          <span className="text-white/70 group-hover/row:text-white transition-colors">{clase}</span>
+                          <span className="text-primary">{(val * 100).toFixed(1)}%</span>
+                        </div>
+                        {/* Barra de progreso visual */}
+                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary/60 transition-all duration-500" 
+                            style={{ width: `${val * 100}%` }} 
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Sección 3: Información Técnica (Dirección de Memoria) */}
+                  <div className="bg-white/5 p-4 rounded-xl border border-white/10 shadow-inner">
+                    <span style={{ fontSize: getFontSize(9) }} className="text-primary font-black uppercase tracking-widest block mb-1.5">
+                      Dirección de Memoria
+                    </span>
+                    <code style={{ fontSize: getFontSize(13) }} className="font-mono break-all leading-none text-white/90">
+                      {selectedAddress}
+                    </code>
+                  </div>
+
+                  {/* Sección 4: Desensamblado (ASM) */}
+                  <div className="pt-4 border-t border-white/10">
+                    {!codeData ? (
+                      <button 
+                        onClick={fetchFunctionCode} 
+                        disabled={isCodeLoading} 
+                        className="w-full py-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl font-black uppercase text-[11px] flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                      >
+                        {isCodeLoading ? (
+                          <>
+                            <Loader2 className="animate-spin w-4 h-4" />
+                            Cargando...
+                          </>
+                        ) : (
+                          "Ver Código Desensamblado"
+                        )}
+                      </button>
+                    ) : (
+                      <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex justify-between items-center">
+                          <span style={{ fontSize: getFontSize(9) }} className="text-primary font-black uppercase tracking-widest">
+                            Instrucciones ASM
+                          </span>
+                          <button 
+                            onClick={() => setCodeData(null)} 
+                            className="text-[10px] text-white/40 hover:text-white underline decoration-dotted transition-colors"
+                          >
+                            Ocultar
+                          </button>
+                        </div>
+                        <pre className="bg-black/50 p-4 rounded-xl border border-white/5 font-mono text-[9px] text-emerald-400 overflow-x-auto max-h-96 scrollbar-thin scrollbar-thumb-white/10 shadow-inner leading-relaxed">
+                          <code>{codeData}</code>
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </aside>
+            )}
+          </div>
       </div>
-    </div>
   );
 }
