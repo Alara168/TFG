@@ -4,6 +4,7 @@ import { UserDashboard } from './components/UserDashboard';
 import { UploadPage } from './components/UploadPage';
 import { AnalysisViewer } from './components/AnalysisViewer';
 import { AdminDashboard } from './components/AdminDashboard';
+import { DatasetExplorer } from './components/DatasetExplorer';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Registro } from './components/Registro';
 import '../styles/fonts.css';
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/dashboard" element={<UserDashboard />} />
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/dataset-explorer" element={<DatasetExplorer />} />
             {/* Agrupamos las variantes de análisis */}
             <Route path="/analisis" element={<AnalysisViewer />} />
             <Route path="/analisis/:id" element={<AnalysisViewer />} />

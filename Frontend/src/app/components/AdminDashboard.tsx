@@ -120,7 +120,7 @@ export function AdminDashboard() {
             color="text-primary" 
             activeUsersList={data.active_users_list} 
           />
-          <KPICard title="Tamaño del Dataset" value={data.kpis.dataset_size} icon={Database} color="text-accent" />
+          <KPICard title="Tamaño del Dataset" value={data.kpis.dataset_size} icon={Database} color="text-accent" onClick={() => navigate('/dataset-explorer')}/>
         </div>
 
         {/* Gráficos */}
@@ -221,9 +221,14 @@ export function AdminDashboard() {
 }
 
 // Componente auxiliar para limpiar el código
-function KPICard({ title, value, icon: Icon, color }: any) {
+function KPICard({ title, value, icon: Icon, color, onClick }: any) {
   return (
-    <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
+    <div 
+      onClick={onClick}
+      className={`bg-card border border-border rounded-lg p-6 shadow-sm transition-all ${
+        onClick ? 'cursor-pointer hover:border-primary/50 hover:bg-secondary/20' : 'cursor-default'
+      }`}
+    >
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm text-muted-foreground font-medium">{title}</h3>
         <Icon className={`w-5 h-5 ${color}`} />
