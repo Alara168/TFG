@@ -13,6 +13,8 @@ class Analisis(models.Model):
     nombre_fichero = models.CharField(max_length=255)
     hash_sha256 = models.CharField(max_length=64, unique=True, db_index=True)
     tamano_bytes = models.BigIntegerField(null=True, blank=True)
+
+    pseudo_label = models.BooleanField(default=True)
     
     resultado_clase = models.CharField(max_length=50)
     confianza_global = models.FloatField(

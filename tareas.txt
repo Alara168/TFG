@@ -1,15 +1,10 @@
 Hacer más análisis para poder realizar el gráfico de tendencias
 
 Tareas:
-
-    - Mirar qué hacer con los botones de tick y x en la parte de Gestión del Dataset em el dashboard de admin
-         Poner que por defecto se cree una columna para cada fichero que sea pseudolabel en true pero que al darle a la X siendo admin
-         se cambie a false aunque a día de hoy no sirva de nada
-    
+   
     - Volver a entrenar los modelos quitando las columnas de has_api_instruccion para ver si de esa forma mejoran los datos
+    - Revisar todos los comentarios y documentar el código
 
-En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
-la velocidad dependa únicamente del modelo de IA. Se puede implementar hilos para aumentar la velocidad?
 
 Reentrenar el modelo para que funcione sin la categoría Otros/Ransomware y mirar si de esa forma funciona mejor para predecir Benigno
 con los instaladores. Mirar qué pasaría si le pasas ransomware real 

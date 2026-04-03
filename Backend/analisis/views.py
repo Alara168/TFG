@@ -24,6 +24,7 @@ from rest_framework.permissions import IsAdminUser
 from datetime import timedelta
 import GPUtil
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 
 
 class AnalizarBinarioView(APIView):
@@ -391,7 +392,7 @@ class AdminDashboardView(APIView):
             },
             "pseudo_labels": [
                 {"id": a.id, "filename": a.nombre_fichero, "confidence": float(a.confianza_global), 
-                 "prediction": a.resultado_clase, "status": "pendiente"} 
+                 "prediction": a.resultado_clase, "label": a.pseudo_label} 
                 for a in Analisis.objects.all().order_by('-fecha_creacion')[:5]
             ],
             "user_logs": formatted_logs,
@@ -503,3 +504,30 @@ class DatasetExplorerListView(APIView):
                 })
 
         return Response(results)
+
+class UpdatePseudoLabelView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, pk):
+        """
+        Actualiza el estado de pseudo_label según el valor recibido en el body.
+        Ejemplo body: {"pseudo_label": true} o {"pseudo_label": false}
+        """
+        analisis = get_object_or_404(Analisis, pk=pk)
+        
+        # Obtenemos el valor del body. Si no viene, usamos False por seguridad.
+        nuevo_estado = request.data.get('pseudo_label', False)
+
+        # Si el valor viene como string (desde algunos clientes), lo convertimos a bool
+        if isinstance(nuevo_estado, str):
+            nuevo_estado = nuevo_estado.lower() == 'true'
+
+        analisis.pseudo_label = nuevo_estado
+        analisis.save()
+
+        return Response({
+            "status": "success",
+            "id": pk,
+            "nuevo_estado": analisis.pseudo_label,
+            "message": f"Pseudo-label marcado como {analisis.pseudo_label}"
+        })

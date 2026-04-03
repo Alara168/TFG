@@ -44,17 +44,49 @@ function UserPodium({ data }: { data: any[] }) {
   );
 }
 
+
+
 export function AdminDashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const handleUpdatePseudoLabel = async (id: number, nuevoValor: boolean) => {
+    try {
+      // 1. Petición al backend
+      const response = await apiClient(`/admin/${id}/toggle-pseudo-label/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pseudo_label: nuevoValor }),
+      });
+  
+      if (response.ok) {
+        // 2. Actualización dinámica en LOCAL
+        // Asumiendo que tu estado se llama 'data' y tiene una propiedad 'pseudo_labels'
+        setData((prevData: any) => {
+          if (!prevData) return prevData;
+  
+          return {
+            ...prevData,
+            pseudo_labels: prevData.pseudo_labels.map((item: any) => {
+              if (item.id === id) {
+                // Devolvemos el item con el nuevo valor booleano
+                return { ...item, pseudo_label: nuevoValor };
+              }
+              return item;
+            }),
+          };
+        });
+      }
+    } catch (error) {
+      console.error("Error al actualizar el estado local:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
         const res = await apiClient('/admin/dashboard-stats/');
-        // Si llegamos aquí, sabemos que es un 200 OK
         const result = await res.json();
         setData(result);
       } catch (err) {
@@ -62,7 +94,7 @@ export function AdminDashboard() {
           navigate('/dashboard', { state: { error: "No tienes permisos de administrador" } });
         } else {
           console.error("Error al cargar dashboard:", err);
-          // Aquí podrías manejar otros errores (red, servidor, etc.)
+          
         }
       } finally {
         setIsLoading(false);
@@ -166,9 +198,33 @@ export function AdminDashboard() {
                   <td className="py-3 px-4 font-mono text-sm text-foreground">{item.filename}</td>
                   <td className="py-3 px-4 text-foreground">{(item.confidence * 100).toFixed(1)}%</td>
                   <td className="py-3 px-4 text-primary font-semibold">{item.prediction}</td>
-                  <td className="py-3 px-4 flex gap-2">
-                    <CheckCircle className="w-4 h-4 text-primary cursor-pointer" />
-                    <XCircle className="w-4 h-4 text-destructive cursor-pointer" />
+                  <td className="py-3 px-4">
+                    <div className="flex items-center justify-center min-w-[100px]">
+                      {/* Usamos el valor booleano que actualizamos en el paso anterior */}
+                      {item.pseudo_label ? (
+                        /* SI ES TRUE: Mostramos botón para poner a FALSE (X) */
+                        <button
+                          onClick={() => handleUpdatePseudoLabel(item.id, false)}
+                          className="group flex items-center gap-2 text-destructive hover:bg-destructive/10 px-2 py-1 rounded-md transition-all"
+                        >
+                          <XCircle className="w-5 h-5" />
+                          <span className="text-[10px] font-bold uppercase hidden group-hover:block">
+                            Desactivar
+                          </span>
+                        </button>
+                      ) : (
+                        /* SI ES FALSE: Mostramos botón para poner a TRUE (Tick) */
+                        <button
+                          onClick={() => handleUpdatePseudoLabel(item.id, true)}
+                          className="group flex items-center gap-2 text-emerald-500 hover:bg-emerald-500/10 px-2 py-1 rounded-md transition-all"
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                          <span className="text-[10px] font-bold uppercase hidden group-hover:block">
+                            Activar
+                          </span>
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -268,4 +324,5 @@ function KPICardUsers({ title, value, icon: Icon, color, activeUsersList }: any)
       )}
     </div>
   );
+
 }
