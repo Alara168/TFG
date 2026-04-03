@@ -6,7 +6,6 @@ Tareas:
     - Poder ver qué usuarios son los que se han conectado.
     - Poner una ventana para ver el dataset y que permita filtrar y esas cosas. 
     - Revisar la gráfica de cómo se ve la gráfica de utilización de recursos y quitar el número que sale cuando haces hver encima de las gráficas
-    - Parte intermedia para demostar que realmente se hace algo con una lista de pasos y que vaya diciendo  lo que está pasando en cada momento y que si está en la base que aun así tarde 5 segundos para que el usuario tenga tiempo de verlo
     - Exportar informe técnico en PDF con el grafo y la información por defecto y que sea igual en todos los casos
     - Añadir los valores que se le pasan al modelo a la BD como columnas en el análisis del fichero
     
