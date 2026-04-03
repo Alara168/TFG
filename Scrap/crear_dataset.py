@@ -112,7 +112,18 @@ def analyze_binary(file_path, is_malware, file_hash):
                 continue
             
             function_bytes = binary_content[f_start:f_end]
-            entropy_value = calculate_entropy(function_bytes)
+            # Entropía
+            try:
+                rva = function.offset - image_base
+                raw_offset = pe.get_offset_from_rva(rva)
+                if raw_offset is not None:
+                    f_size = (instrs[-1].offset + len(instrs[-1].bytes)) - function.offset
+                    func_bytes = full_binary_data[raw_offset : raw_offset + f_size]
+                    f_entropy = calculate_entropy(func_bytes)
+                else:
+                    f_entropy = 0.0
+            except:
+                f_entropy = 0.0
 
             # Características estructurales del Grafo de Flujo de Control (CFG)
             num_blocks = len(basic_blocks)
