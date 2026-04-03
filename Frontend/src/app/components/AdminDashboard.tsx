@@ -126,9 +126,9 @@ export function AdminDashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                 <XAxis dataKey="time" stroke="#888" />
                 <YAxis stroke="#888" />
-                <Tooltip contentStyle={{ backgroundColor: '#1E1E1E' }} />
-                <Area name="GPU" dataKey="gpu" stroke="#FFA500" fill="#FFA500" fillOpacity={0.3} />
-                <Area name="CPU" dataKey="cpu" stroke="#00FF41" fill="#00FF41" fillOpacity={0.3} />
+                <Tooltip contentStyle={{ backgroundColor: '#1E1E1E', color: 'white' }} />
+                <Area name="GPU" dataKey="gpu" stroke="#FFA500" fill="transparent" fillOpacity={0.3} />
+                <Area name="CPU" dataKey="cpu" stroke="#00FF41" fill="transparent" fillOpacity={0.3} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -140,7 +140,7 @@ export function AdminDashboard() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
                 <XAxis dataKey="name" stroke="#888" fontSize={12} />
                 <YAxis domain={[0, 1]} stroke="#888" fontSize={12} />
-                <Tooltip contentStyle={{ backgroundColor: '#1E1E1E' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#1E1E1E', color: 'white' }} />
                 <Legend />
                 <Bar dataKey="precision" name="Precisión" fill="#8884d8" />
                 <Bar dataKey="recall" name="Recall" fill="#82ca9d" />

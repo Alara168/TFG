@@ -5,9 +5,7 @@ Tareas:
     - Mirar qué hacer con los botones de tick y x en la parte de Gestión del Dataset em el dashboard de admin
     - Poder ver qué usuarios son los que se han conectado.
     - Poner una ventana para ver el dataset y que permita filtrar y esas cosas. 
-    - Revisar la gráfica de cómo se ve la gráfica de utilización de recursos y quitar el número que sale cuando haces hver encima de las gráficas
-    - Añadir los valores que se le pasan al modelo a la BD como columnas en el análisis del fichero
-
+    
     - Volver a entrenar los modelos quitando las columnas de has_api_instruccion para ver si de esa forma mejoran los datos
 
 En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
