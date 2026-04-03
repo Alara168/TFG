@@ -320,12 +320,15 @@ class AdminDashboardView(APIView):
         # 1. Obtener el umbral de tiempo
         umbral_tiempo = ahora - timedelta(minutes=30)
 
-        # 2. Obtener usuarios únicos que han hecho LOGIN en los últimos 30 min
-        # Usamos values('usuario_id') para obtener solo los IDs y luego distinct() para evitar duplicados
-        active_users_count = LogActividad.objects.filter(
+        # Obtenemos los nombres de usuario únicos activos en los últimos 30 min
+        active_users_queryset = LogActividad.objects.filter(
             accion='LOGIN', 
             timestamp__gte=umbral_tiempo
-        ).values('usuario_id').distinct().count()
+        ).values_list('usuario__username', flat=True).distinct()
+
+        # Convertimos a lista para que sea serializable en JSON
+        active_users_names = list(active_users_queryset)
+        active_users_count = len(active_users_names)
 
         # 3. Logs de actividad para la tabla (los 5 más recientes)
         logs_data = LogActividad.objects.order_by('-timestamp')[:5]
@@ -377,10 +380,10 @@ class AdminDashboardView(APIView):
             "kpis": {
                 "gpu_load": gpu_usage,
                 "cpu_load": cpu_usage,
-                "active_users": active_users,
+                "active_users": len(active_users_names),
                 "dataset_size": f"{dataset_size}K"
             },
-            
+            "active_users_list": active_users_names,
             "charts": {
                 "resource_usage": resource_usage,
                 "model_performance": model_performance

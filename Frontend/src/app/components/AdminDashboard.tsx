@@ -113,7 +113,13 @@ export function AdminDashboard() {
         <div className="grid grid-cols-4 gap-6">
           <KPICard title="Carga de GPU" value={`${data.kpis.gpu_load}%`} icon={Cpu} color="text-accent" />
           <KPICard title="Carga de CPU" value={`${data.kpis.cpu_load.toFixed(1)}%`} icon={Activity} color="text-primary" />
-          <KPICard title="Usuarios Activos" value={data.kpis.active_users} icon={Users} color="text-primary" />
+          <KPICardUsers 
+            title="Usuarios Activos" 
+            value={data.kpis.active_users} 
+            icon={Users} 
+            color="text-primary" 
+            activeUsersList={data.active_users_list} 
+          />
           <KPICard title="Tamaño del Dataset" value={data.kpis.dataset_size} icon={Database} color="text-accent" />
         </div>
 
@@ -223,6 +229,38 @@ function KPICard({ title, value, icon: Icon, color }: any) {
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
       <p className="text-3xl font-bold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function KPICardUsers({ title, value, icon: Icon, color, activeUsersList }: any) {
+  return (
+    /* Importante: la clase 'group' es la que permite que el hijo detecte el hover del padre */
+    <div className="bg-card border border-border rounded-lg p-6 shadow-sm relative group">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm text-muted-foreground font-medium">{title}</h3>
+        <Icon className={`w-5 h-5 ${color}`} />
+      </div>
+      <p className="text-3xl font-bold text-foreground">{value}</p>
+
+      {/* TOOLTIP: Solo se muestra si hay usuarios y si el ratón está sobre la tarjeta (group-hover) */}
+      {activeUsersList && activeUsersList.length > 0 && (
+        <div className="absolute z-[100] left-0 top-[110%] w-56 bg-[#1E1E1E] border border-border rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 p-4">
+          <p className="text-[10px] uppercase tracking-wider font-bold text-primary mb-3 border-b border-white/10 pb-2">
+            Usuarios en línea
+          </p>
+          <ul className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+            {activeUsersList.map((user: string, index: number) => (
+              <li key={index} className="text-sm text-gray-200 flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="font-mono">{user}</span>
+              </li>
+            ))}
+          </ul>
+          {/* Triangulito del tooltip (opcional) */}
+          <div className="absolute -top-1.5 left-6 w-3 h-3 bg-[#1E1E1E] border-l border-t border-border rotate-45"></div>
+        </div>
+      )}
     </div>
   );
 }

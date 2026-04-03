@@ -3,7 +3,6 @@ Hacer más análisis para poder realizar el gráfico de tendencias
 Tareas:
 
     - Mirar qué hacer con los botones de tick y x en la parte de Gestión del Dataset em el dashboard de admin
-    - Poder ver qué usuarios son los que se han conectado.
     - Poner una ventana para ver el dataset y que permita filtrar y esas cosas. 
     
     - Volver a entrenar los modelos quitando las columnas de has_api_instruccion para ver si de esa forma mejoran los datos
