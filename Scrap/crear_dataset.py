@@ -61,131 +61,116 @@ def get_import_mapping(pe):
     return import_map
 
 def analyze_binary(file_path, is_malware, file_hash):
-    """
-    Analiza un binario individual, desensambla sus funciones y extrae
-    características estructurales, sintácticas y semánticas.
-    """
     features_list = []
     filename = os.path.basename(file_path)
-    
     print(f"[*] Analizando: {filename}...")
 
     try:
-        # Carga rápida del archivo PE (Portable Executable)
+        # 1. Cargar PE y mapa de importaciones
         pe = pefile.PE(file_path, fast_load=True)
-        if not pe.is_exe() and not pe.is_dll():
-            return []
-            
-        import_map = get_import_mapping(pe)
-        base_address = pe.OPTIONAL_HEADER.ImageBase
+        image_base = pe.OPTIONAL_HEADER.ImageBase
         
+        import_map = {}
+        if hasattr(pe, 'DIRECTORY_ENTRY_IMPORT'):
+            for entry in pe.DIRECTORY_ENTRY_IMPORT:
+                for imp in entry.imports:
+                    if imp.name:
+                        api_name = imp.name.decode('utf-8', 'ignore')
+                        import_map[imp.address] = api_name
+
+        # 2. Leer contenido binario completo para la entropía
         with open(file_path, "rb") as f:
-            binary_content = f.read()
-        
-        # Uso del motor SMDA para desensamblado recursivo
-        disassembler = Disassembler(config=None)
-        report = disassembler.disassembleBuffer(binary_content, base_addr=base_address)
+            full_binary_data = f.read()
 
-        if report is None:
+        # 3. Desensamblar
+        disassembler = Disassembler()
+        report = disassembler.disassembleBuffer(full_binary_data, base_addr=image_base)
+        if not report:
+            pe.close()
             return []
 
-        # Procesar cada función identificada por el desensamblador
-        for function in report.getFunctions():
-            f_addr = function.offset
-            f_instrs = list(function.getInstructions())
-            basic_blocks = list(function.getBlocks())
-            
-            if not f_instrs:
-                continue 
+        funciones = list(report.getFunctions())
 
-            # Cálculo de la longitud física de la función en bytes
-            function_len = sum(instr.detailed.size for instr in f_instrs if hasattr(instr.detailed, 'size'))
+        for function in funciones:
+            instrs = list(function.getInstructions())
+            if len(instrs) < 5: continue
             
-            if function_len <= 0:
-                continue
-            
-            # Extraer los bytes reales de la función para calcular su entropía
-            f_start = f_addr - base_address 
-            f_end = min(f_start + function_len, len(binary_content))
-            
-            if f_start >= f_end or f_start < 0:
-                continue
-            
-            function_bytes = binary_content[f_start:f_end]
-            # Entropía
+            # --- Cálculo de Entropía (CORREGIDO) ---
+            f_entropy = 0.0
             try:
                 rva = function.offset - image_base
                 raw_offset = pe.get_offset_from_rva(rva)
                 if raw_offset is not None:
+                    # Tamaño aproximado: dirección última instrucción + su tamaño - inicio
                     f_size = (instrs[-1].offset + len(instrs[-1].bytes)) - function.offset
                     func_bytes = full_binary_data[raw_offset : raw_offset + f_size]
                     f_entropy = calculate_entropy(func_bytes)
-                else:
-                    f_entropy = 0.0
             except:
-                f_entropy = 0.0
+                pass
 
-            # Características estructurales del Grafo de Flujo de Control (CFG)
-            num_blocks = len(basic_blocks)
-            num_edges = len(list(function.getCodeInrefs())) + len(list(function.getCodeOutrefs()))
-            
-            # Diccionario base de la función
+            # --- Inicializar Diccionario ---
             feat = {
                 'binary_hash': file_hash,
-                'func_addr': hex(f_addr),
-                'num_instrs': len(f_instrs),
-                'num_blocks': num_blocks,
-                'num_edges': num_edges,
-                'cyclomatic_complexity': num_edges - num_blocks + 2,
-                'api_calls_count': 0,
-                'entropy': entropy_value,
+                'func_addr': hex(function.offset),
+                'num_instrs': float(len(instrs)), 
+                'num_blocks': float(len(list(function.getBlocks()))),
+                'num_edges': float(len(list(function.getCodeInrefs())) + len(list(function.getCodeOutrefs()))),
+                'entropy': f_entropy,
+                'api_calls_count': 0.0,
                 'malware': is_malware
             }
+            
+            for op in INTERESTING_OPCODES: feat[f'opcode_{op}'] = 0.0
+            for api in SUSPICIOUS_APIS: feat[f'has_api_{api}'] = 0.0
 
-            # Inicializar contadores de Opcodes y flags de APIs
-            for op in INTERESTING_OPCODES:
-                feat[f'opcode_{op}'] = 0
-            for api in SUSPICIOUS_APIS:
-                feat[f'has_api_{api}'] = 0
-
-            api_counter = 0
-            for instr in f_instrs:
-                mnemonic = instr.mnemonic.lower()
+            # --- Procesar Instrucciones (Lógica Robusta) ---
+            for ins in instrs:
+                m = ins.mnemonic.lower()
+                if m in INTERESTING_OPCODES: 
+                    feat[f'opcode_{m}'] += 1.0
                 
-                # Conteo de opcodes interesantes
-                if mnemonic in INTERESTING_OPCODES:
-                    feat[f'opcode_{mnemonic}'] += 1
-
-                # Análisis de llamadas (CALL/JMP) para identificar uso de APIs
-                if mnemonic in ['call', 'jmp']:
-                    references = list(instr.getDataRefs())
-                    for ref in references:
+                if m in ['call', 'jmp']:
+                    api_resolved = None
+                    # A. Por Referencias de Datos (IAT)
+                    for ref in ins.getDataRefs():
                         if ref in import_map:
-                            api_name = import_map[ref]
-                            api_counter += 1
-                            # Verificar si la API llamada está en nuestra lista de sospechosas
-                            for susp in SUSPICIOUS_APIS:
-                                if susp.lower() in api_name.lower():
-                                    feat[f'has_api_{susp}'] = 1
-            
-            feat['api_calls_count'] = api_counter
-            
-            # Cálculo de proporciones (Ratios)
+                            api_resolved = import_map[ref]
+                            break
+                    
+                    # B. Por RIP-Relative (Regex para x64)
+                    if not api_resolved and "rip +" in ins.operands:
+                        match = re.search(r'0x([0-9a-fA-F]+)', ins.operands)
+                        if match:
+                            offset = int(match.group(1), 16)
+                            target = ins.offset + len(ins.bytes) + offset
+                            if target in import_map: 
+                                api_resolved = import_map[target]
+
+                    # C. Por Símbolo (Si SMDA lo tiene)
+                    if not api_resolved and hasattr(ins, 'symbol') and ins.symbol:
+                        api_resolved = ins.symbol
+
+                    if api_resolved:
+                        feat['api_calls_count'] += 1.0
+                        api_lower = api_resolved.lower()
+                        for target in SUSPICIOUS_APIS:
+                            if target.lower() in api_lower:
+                                feat[f'has_api_{target}'] = 1.0
+
+            # Ratios y Complejidad
             total = feat['num_instrs']
-            if total > 0:
-                feat['ratio_arithmetic'] = (feat['opcode_add'] + feat['opcode_sub'] + feat['opcode_xor']) / total
-                feat['ratio_jumps'] = (feat['opcode_jmp'] + feat['opcode_call']) / total
-            else:
-                feat['ratio_arithmetic'] = 0
-                feat['ratio_jumps'] = 0
-                
+            feat['ratio_arithmetic'] = (feat['opcode_add'] + feat['opcode_sub'] + feat['opcode_xor']) / total
+            feat['ratio_jumps'] = (feat['opcode_jmp'] + feat['opcode_call']) / total
+            feat['cyclomatic_complexity'] = float(max(0, feat['num_edges'] - feat['num_blocks'] + 2))
+            
             features_list.append(feat)
 
-    except Exception as e:
-        print(f"Error procesando {filename}: {e}")
-        return []
+        pe.close()
+        return features_list
 
-    return features_list
+    except Exception as e:
+        print(f"Error en {filename}: {e}")
+        return []
 
 def save_to_csv(data_list):
     """

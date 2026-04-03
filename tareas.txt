@@ -7,8 +7,6 @@ Tareas:
     - Poner una ventana para ver el dataset y que permita filtrar y esas cosas. 
     - Revisar la gráfica de cómo se ve la gráfica de utilización de recursos y quitar el número que sale cuando haces hver encima de las gráficas
     - Añadir los valores que se le pasan al modelo a la BD como columnas en el análisis del fichero
-    
-    - Poner una aplicación gráfica para poder ver las tablas de la BD
 
     - Revisar el Dataset ya que entropia y api calls están siempre a 0 y seguramente haya que rehacerlo.
       Igual hay que quitar lo de api calls ya que no soy capaz de hacer que sea un valor distinto de 0. Revisar los valores distintos
