@@ -8,9 +8,7 @@ Tareas:
     - Revisar la gráfica de cómo se ve la gráfica de utilización de recursos y quitar el número que sale cuando haces hver encima de las gráficas
     - Añadir los valores que se le pasan al modelo a la BD como columnas en el análisis del fichero
 
-    - Revisar el Dataset ya que entropia y api calls están siempre a 0 y seguramente haya que rehacerlo.
-      Igual hay que quitar lo de api calls ya que no soy capaz de hacer que sea un valor distinto de 0. Revisar los valores distintos
-      que tiene el dataset en las columnas de has_api_instruccion
+    - Volver a entrenar los modelos quitando las columnas de has_api_instruccion para ver si de esa forma mejoran los datos
 
 En caso de tener tiempo optimizar para velocidad el endpointde analisis. Igual creando un endpoint que llame a otros para que
 la velocidad dependa únicamente del modelo de IA. Se puede implementar hilos para aumentar la velocidad?
