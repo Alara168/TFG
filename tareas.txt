@@ -3,7 +3,8 @@ Hacer más análisis para poder realizar el gráfico de tendencias
 Tareas:
 
     - Mirar qué hacer con los botones de tick y x en la parte de Gestión del Dataset em el dashboard de admin
-    - Poner una ventana para ver el dataset y que permita filtrar y esas cosas. 
+         Poner que por defecto se cree una columna para cada fichero que sea pseudolabel en true pero que al darle a la X siendo admin
+         se cambie a false aunque a día de hoy no sirva de nada
     
     - Volver a entrenar los modelos quitando las columnas de has_api_instruccion para ver si de esa forma mejoran los datos
 

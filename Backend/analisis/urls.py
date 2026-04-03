@@ -9,6 +9,7 @@ from .views import (
     LogoutView,
     AdminDashboardView,
     DetalleCodigoView,
+    DatasetExplorerListView
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -23,4 +24,5 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='auth_logout'),
     path('admin/dashboard-stats/', AdminDashboardView.as_view(), name='admin-stats'),
     path('analisis/<int:analisis_pk>/codigo/<str:direccion>/', DetalleCodigoView.as_view(), name='analisis-codigo'),
+    path('admin/full-dataset-explorer/', DatasetExplorerListView.as_view(), name='dataset-explorer'),
 ]

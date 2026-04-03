@@ -23,6 +23,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser
 from datetime import timedelta
 import GPUtil
+from django.db.models import Q
 
 
 class AnalizarBinarioView(APIView):
@@ -421,3 +422,84 @@ class DetalleCodigoView(APIView):
             "direccion": detalle.direccion_memoria,
             "codigo": detalle.codigo_desensamblado
         })
+
+class DatasetExplorerListView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        # 1. Capturar parámetros de búsqueda
+        fichero = request.query_params.get('fichero', '')
+        direccion = request.query_params.get('direccion', '')
+        clase = request.query_params.get('clase', '')
+        
+        # Filtros técnicos (numéricos)
+        min_score = request.query_params.get('score', '')
+        min_inst = request.query_params.get('instrucciones', '')
+        min_ent = request.query_params.get('entropia', '')
+        min_comp = request.query_params.get('complejidad', '')
+
+        # 2. QuerySet Base con optimización de relación
+        queryset = Analisis.objects.prefetch_related('detalles_funciones').all()
+
+        # Filtros a nivel de objeto Análisis
+        if fichero:
+            queryset = queryset.filter(nombre_fichero__icontains=fichero)
+        if clase:
+            queryset = queryset.filter(resultado_clase__icontains=clase)
+
+        # Filtro de seguridad: Si se busca algo específico de funciones, 
+        # filtramos el queryset principal para que solo incluya los análisis que tienen 
+        # AL MENOS UNA función que cumpla el criterio.
+        if direccion:
+            queryset = queryset.filter(detalles_funciones__direccion_memoria__icontains=direccion)
+        if min_score:
+            queryset = queryset.filter(detalles_funciones__atencion_score__gte=min_score)
+        if min_inst:
+            queryset = queryset.filter(detalles_funciones__num_instrucciones__gte=min_inst)
+        if min_comp:
+            queryset = queryset.filter(detalles_funciones__complejidad_ciclomatica__gte=min_comp)
+        if min_ent:
+            queryset = queryset.filter(detalles_funciones__entropia__gte=min_ent)
+
+        dataset_queryset = queryset.distinct().order_by('-fecha_creacion')[:50]
+
+        results = []
+        for analisis in dataset_queryset:
+            # 3. FILTRADO ESTRICTO DE FUNCIONES INTERNAS
+            # Obtenemos todas y empezamos a descartar las que no cumplen la búsqueda
+            funcs_qs = analisis.detalles_funciones.all()
+
+            if direccion:
+                funcs_qs = funcs_qs.filter(direccion_memoria__icontains=direccion)
+            if min_score:
+                funcs_qs = funcs_qs.filter(atencion_score__gte=min_score)
+            if min_inst:
+                funcs_qs = funcs_qs.filter(num_instrucciones__gte=min_inst)
+            if min_comp:
+                funcs_qs = funcs_qs.filter(complejidad_ciclomatica__gte=min_comp)
+            if min_ent:
+                funcs_qs = funcs_qs.filter(entropia__gte=min_ent)
+
+            # 4. Construcción del array de funciones filtradas
+            funciones_filtradas = [
+                {
+                    "direccion_memoria": f.direccion_memoria,
+                    "atencion_score": f.atencion_score,
+                    "num_instrucciones": f.num_instrucciones,
+                    "entropia": f.entropia,
+                    "complejidad": f.complejidad_ciclomatica,
+                }
+                for f in funcs_qs
+            ]
+
+            # 5. SOLO añadir el análisis si tiene funciones que pasaron el filtro
+            if funciones_filtradas:
+                results.append({
+                    "nombre_fichero": analisis.nombre_fichero,
+                    "resultado_clase": analisis.resultado_clase,
+                    "confianza_global": analisis.confianza_global,
+                    "hash_sha256": analisis.hash_sha256,
+                    "detalles_funciones": funciones_filtradas
+                })
+
+        return Response(results)
