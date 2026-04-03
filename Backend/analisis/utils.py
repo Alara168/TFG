@@ -38,30 +38,27 @@ def get_resources():
     return _MODELO, _PIPELINE
 def extract_features(archivo_django):
     archivo_django.seek(0)
-    # Creamos el archivo temporal manualmente para controlar el cierre
+    # Leemos el contenido completo una vez para extraer los bytes de las funciones después
+    full_binary_data = archivo_django.read()
+    archivo_django.seek(0)
+
     suffix = ".exe"
     tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     path = tmp_file.name
     
     try:
-        # 1. Escribir y cerrar el archivo inmediatamente para que SMDA pueda abrirlo
         for chunk in archivo_django.chunks():
             tmp_file.write(chunk)
-        tmp_file.close() # <--- CRÍTICO para evitar PermissionError en Windows
+        tmp_file.close()
 
-        # 2. Cargar PE y Desensamblar
         pe = pefile.PE(path, fast_load=True)
         disassembler = Disassembler()
         report = disassembler.disassembleFile(path)
         
-        # 3. Extraer funciones (forma compatible con versiones antiguas y nuevas de SMDA)
         funciones = list(report.getFunctions()) if report else []
-        
         if not funciones:
-            print("DEBUG: SMDA no identificó funciones.")
             return None, None
 
-        # --- Parámetros del modelo (36 columnas) ---
         opcodes = ['mov', 'add', 'sub', 'xor', 'cmp', 'test', 'lea', 'push', 'pop', 'call', 'jmp', 'ret']
         apis = ['CreateFile', 'WriteFile', 'OpenProcess', 'VirtualAlloc', 'CreateRemoteThread', 'RegOpenKey', 'InternetOpen', 'URLDownload', 'ShellExecute', 'WSAStartup', 'connect', 'bind', 'accept', 'HttpSendRequest', 'GetProcAddress', 'LoadLibrary']
         
@@ -72,43 +69,77 @@ def extract_features(archivo_django):
                     if imp.name:
                         import_map[imp.address] = imp.name.decode('utf-8', 'ignore')
 
-        features_list, addrs = [] , []
+        features_list, addrs = [], []
 
         for function in funciones:
             instrs = list(function.getInstructions())
             if len(instrs) < 5: continue
             
+            # --- ARREGLO 1: CÁLCULO DE ENTROPÍA REAL ---
+            # Intentamos obtener los bytes de la función desde el binario original
+            try:
+                # SMDA nos da el offset y el tamaño aproximado sumando instrucciones
+                f_offset = function.offset
+                # Buscamos el offset físico en el archivo usando PE
+                rva = f_offset - pe.OPTIONAL_HEADER.ImageBase
+                raw_offset = pe.get_offset_from_rva(rva)
+                
+                # Estimamos el tamaño por la última instrucción
+                last_ins = instrs[-1]
+                f_size = (last_ins.offset + len(last_ins.bytes)) - f_offset
+                
+                func_bytes = full_binary_data[raw_offset : raw_offset + f_size]
+                f_entropy = calculate_entropy(func_bytes)
+            except:
+                f_entropy = 0.0
+
             feat = {
                 'num_instrs': len(instrs),
                 'num_blocks': len(list(function.getBlocks())),
                 'num_edges': len(list(function.getCodeInrefs())) + len(list(function.getCodeOutrefs())),
-                'entropy': 0.0,
+                'entropy': f_entropy, # <--- Ahora sí se guarda
                 'api_calls_count': 0
             }
-            feat['cyclomatic_complexity'] = feat['num_edges'] - feat['num_blocks'] + 2
             
+            # Inicializar contadores
             for op in opcodes: feat[f'opcode_{op}'] = 0
             for api in apis: feat[f'has_api_{api}'] = 0
             
             for ins in instrs:
                 m = ins.mnemonic.lower()
                 if m in opcodes: feat[f'opcode_{m}'] += 1
-                if m in ['call', 'jmp']:
+                
+                # --- ARREGLO 2: CONTEO DE APIS ROBUSTO ---
+                if m == 'call':
+                    is_api = False
+                    # Caso A: Referencia en import_map (IAT)
                     for ref in ins.getDataRefs():
                         if ref in import_map:
-                            feat['api_calls_count'] += 1
-                            api_name = import_map[ref].lower()
-                            for a in apis:
-                                if a.lower() in api_name: feat[f'has_api_{a}'] = 1
-            
-            total = len(instrs)
+                            is_api = True
+                            api_found = import_map[ref]
+                            break
+                    
+                    # Caso B: SMDA ya resolvió el símbolo (si el reporte es rico)
+                    if not is_api and hasattr(ins, 'symbol') and ins.symbol:
+                        is_api = True
+                        api_found = ins.symbol
+
+                    if is_api:
+                        feat['api_calls_count'] += 1
+                        api_name_lower = api_found.lower()
+                        for a in apis:
+                            if a.lower() in api_name_lower:
+                                feat[f'has_api_{a}'] = 1
+
+            # Evitar división por cero
+            total = len(instrs) if len(instrs) > 0 else 1
             feat['ratio_arithmetic'] = (feat['opcode_add'] + feat['opcode_sub'] + feat['opcode_xor']) / total
             feat['ratio_jumps'] = (feat['opcode_jmp'] + feat['opcode_call']) / total
+            feat['cyclomatic_complexity'] = max(0, feat['num_edges'] - feat['num_blocks'] + 2)
             
             features_list.append(feat)
             addrs.append(hex(function.offset))
 
-        print(f"DEBUG: Éxito. {len(features_list)} funciones listas para la IA.")
         return features_list, addrs
 
     except Exception as e:

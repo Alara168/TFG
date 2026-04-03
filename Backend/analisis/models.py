@@ -51,24 +51,45 @@ class Subida(models.Model):
 class DetalleFuncion(models.Model):
     """
     Almacena las funciones con mayor peso de atención del modelo MIL.
-    Esencial para la "Explicabilidad" de la IA.
+    Incluye las características (features) que alimentaron al modelo.
     """
     analisis = models.ForeignKey(Analisis, on_delete=models.CASCADE, related_name='detalles_funciones')
     direccion_memoria = models.CharField(max_length=50) # func_addr
     codigo_desensamblado = models.TextField(blank=True, null=True)
-    
-    # El valor 'A' (Atención) que devuelve tu modelo para esta función
-    atencion_score = models.FloatField()
-    
-    prediccion_especifica = models.JSONField(null=True, blank=True)
 
-    # Resumen de características para el frontend
+    # --- DATOS DEL MODELO MIL ---
+
+    # El valor 'A' (Softmax de atención) que devuelve forward()
+    atencion_score = models.FloatField()
+
+    # Corresponde a 'probs_instancias': la predicción individual de esa función
+    prediccion_especifica = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Probabilidades individuales (softmax) de la función"
+    )
+
+    # --- CARACTERÍSTICAS DE ENTRADA (FEATURES) ---
+
+    # Aquí guardamos el vector 'x' que entra al modelo MIL
+    features_vector = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Valores numéricos de entrada pasados al modelo (input_dim)"
+    )
+
+    # Métricas calculadas para visualización rápida en UI
     num_instrucciones = models.IntegerField(default=0)
+    num_llamadas_sistema = models.IntegerField(default=0) # Nueva útil para malware
     entropia = models.FloatField(default=0.0)
-    
+    complejidad_ciclomatica = models.IntegerField(default=1)
+
     class Meta:
         verbose_name_plural = "Detalles de Funciones"
-        ordering = ['-atencion_score'] # Las más sospechosas primero
+        ordering = ['-atencion_score'] # Prioridad a las funciones que la IA marcó como clave
+
+    def __str__(self):
+        return f"Función {self.direccion_memoria} - Score: {self.atencion_score:.4f}"
 
 # ==========================================
 # 3. SEGURIDAD Y AUDITORÍA (REQUISITO TFG)

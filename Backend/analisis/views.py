@@ -130,6 +130,7 @@ class AnalizarBinarioView(APIView):
             # Guardar el TOP 20 de funciones por atención (Explicabilidad)
             top_i = attn.argsort()[-20:][::-1]
             for i in top_i:
+                row_features = df.iloc[i].to_dict()
                 asm_code = desensamblar_funcion(file_obj, addrs[i])
                 set_probs = {clases_nombres[j]: float(probs_instancias[i][j]) for j in range(len(clases_nombres))}
                 DetalleFuncion.objects.create(
@@ -137,7 +138,13 @@ class AnalizarBinarioView(APIView):
                     direccion_memoria=addrs[i], 
                     atencion_score=float(attn[i]), 
                     prediccion_especifica=set_probs,
-                    codigo_desensamblado=asm_code
+                    codigo_desensamblado=asm_code,
+
+                    features_vector=row_features,
+                    num_instrucciones=int(row_features.get('num_instrs', 0)),
+                    num_llamadas_sistema=int(row_features.get('api_calls_count', 0)),
+                    entropia=float(row_features.get('entropy', 0.0)),
+                    complejidad_ciclomatica=int(row_features.get('cyclomatic_complexity', 0))
                 )
         
         # 2. VINCULACIÓN: Crear la relación entre el usuario actual y el análisis
