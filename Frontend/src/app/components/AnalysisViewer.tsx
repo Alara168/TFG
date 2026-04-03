@@ -231,8 +231,8 @@ export function AnalysisViewer() {
             <ArrowLeft style={{ width: getFontSize(22), height: getFontSize(22) }} />
           </button>
           <div>
-            <h1 style={{ fontSize: getFontSize(18) }} className="font-black tracking-tight uppercase">
-              {analysis?.nombre_fichero}
+            <h1 style={{ fontSize: getFontSize(20) }} className="font-black tracking-tight uppercase">
+              Grafo de Dependencias: {analysis?.nombre_fichero}
             </h1>
             <p style={{ fontSize: getFontSize(10) }} className="text-white/40 font-mono tracking-tighter">
               {analysis?.hash_sha256}
@@ -353,11 +353,18 @@ export function AnalysisViewer() {
                 const pos = nodePositions.get(node.id);
                 if (!pos) return null;
                 const isSelected = selectedAddress === node.id;
-                const cleanLabel = node.label.replace(/^func_/i, '');
+                
+                // Formateamos la atención para que quepa dentro (ej: 0.052)
+                const attentionText = node.atencion_score.toFixed(3);
                 
                 return (
-                  <g key={node.id} transform={`translate(${pos.x}, ${pos.y})`} 
-                     onClick={() => setSelectedAddress(node.id)} className="cursor-pointer group">
+                  <g 
+                    key={node.id} 
+                    transform={`translate(${pos.x}, ${pos.y})`} 
+                    onClick={() => setSelectedAddress(node.id)} 
+                    className="cursor-pointer group"
+                  >
+                    {/* CÍRCULO PRINCIPAL */}
                     <circle 
                       r={nodeRadius} 
                       fill={getNodeColor(node.atencion_score)} 
@@ -365,13 +372,27 @@ export function AnalysisViewer() {
                       stroke={isSelected ? "#fff" : "rgba(255,255,255,0.1)"}
                       strokeWidth={isSelected ? "3" : "1.5"}
                     />
-                    <text y="4" textAnchor="middle" fill="#fff" 
-                      style={{ fontSize: getFontSize(10) }} className="font-black font-mono pointer-events-none uppercase">
-                      {cleanLabel.length > 8 ? cleanLabel.substring(0, 6) + '..' : cleanLabel}
+
+                    {/* TEXTO DENTRO DE LA BOLA: ATENCIÓN */}
+                    <text 
+                      y="4" 
+                      textAnchor="middle" 
+                      fill="#fff" 
+                      style={{ fontSize: getFontSize(11) }} 
+                      className="font-black font-mono pointer-events-none"
+                    >
+                      {attentionText}
                     </text>
-                    <text y={nodeRadius + 18} textAnchor="middle" fill={isSelected ? "#fff" : "rgba(255,255,255,0.4)"} 
-                      style={{ fontSize: getFontSize(9) }} className="font-bold font-mono uppercase tracking-tight">
-                      {node.id.substring(2, 10)}
+
+                    {/* TEXTO DEBAJO DE LA BOLA: DIRECCIÓN DE MEMORIA COMPLETA */}
+                    <text 
+                      y={nodeRadius + 20} 
+                      textAnchor="middle" 
+                      fill={isSelected ? "#fff" : "rgba(255,255,255,0.6)"} 
+                      style={{ fontSize: getFontSize(10) }} 
+                      className="font-bold font-mono tracking-tighter uppercase"
+                    >
+                      {node.id} {/* Aquí ya no usamos substring, mostramos el ID completo */}
                     </text>
                   </g>
                 );
