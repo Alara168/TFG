@@ -299,7 +299,7 @@ def entrenar(csv_path, k_folds=5):
                 if p_val > 0.4: print(f"     - {NOMBRES_CLASES[j]}: {p_val*100:.2f}%")
 
 if __name__ == "__main__":
-    csv_file = "../Scrap/dataset_tfg_etiquetado_completo.csv"
+    csv_file = "../../Scrap/dataset_tfg_etiquetado_completo.csv"
     if os.path.exists(csv_file):
         entrenar(csv_file)
     else:

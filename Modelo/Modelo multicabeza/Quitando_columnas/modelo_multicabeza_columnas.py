@@ -57,7 +57,10 @@ class MalwareMILDataset(Dataset):
             total_instancias_malware_objetivo += seleccion_malware['count'].sum()
             hashes_finales.extend(seleccion_malware['binary_hash'].tolist())
 
-        print(f"[*] Objetivo de instancias Benignas: {total_instancias_malware_objetivo}")
+        MULTIPLICADOR_BENIGNO = 2.0 
+        objetivo_benigno = int(total_instancias_malware_objetivo * MULTIPLICADOR_BENIGNO)
+
+        print(f"[*] Objetivo de instancias Benignas: {objetivo_benigno}")
 
         # 2. Ahora aplicamos ese objetivo como límite estricto para la clase Benigno
         df_benigno = df[df['malware'] == benigno_id]
@@ -65,7 +68,7 @@ class MalwareMILDataset(Dataset):
         counts_benigno = counts_benigno.sample(frac=1, random_state=42)
         counts_benigno['cum_sum'] = counts_benigno['count'].cumsum()
         
-        seleccion_benigno = counts_benigno[counts_benigno['cum_sum'] <= total_instancias_malware_objetivo]['binary_hash'].tolist()
+        seleccion_benigno = counts_benigno[counts_benigno['cum_sum'] <= objetivo_benigno]['binary_hash'].tolist()
         if not seleccion_benigno and not counts_benigno.empty:
             seleccion_benigno = [counts_benigno.iloc[0]['binary_hash']]
         
@@ -345,6 +348,6 @@ def entrenar(csv_path, k_folds=5):
         if i == 0: create_activation_video(model, feats.to(device), addrs)
 
 if __name__ == "__main__":
-    csv_file = "../../Scrap/dataset_tfg_etiquetado_completo.csv"
+    csv_file = "../../../Scrap/dataset_tfg_etiquetado_completo.csv"
     if os.path.exists(csv_file):
         entrenar(csv_file)
