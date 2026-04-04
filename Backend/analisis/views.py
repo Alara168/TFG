@@ -46,6 +46,12 @@ class AnalizarBinarioView(APIView):
         return True
 
     def post(self, request):
+
+        print("aquí")
+
+        enable_pseudo_raw = request.data.get('enable_pseudo_label', 'false')
+        enable_pseudo_bool = str(enable_pseudo_raw).lower() == 'true'
+
         file_obj = request.FILES.get('archivo')
         if not file_obj: 
             return Response({"error": "No se proporcionó ningún archivo."}, status=400)
@@ -126,7 +132,8 @@ class AnalizarBinarioView(APIView):
                 resultado_clase=resultado_final,
                 confianza_global=confianza_final,
                 probabilidades_json=probs_dict,
-                call_graph_json = grafo_inicial
+                call_graph_json = grafo_inicial,
+                pseudo_label=enable_pseudo_bool
             )
 
             # Guardar el TOP 20 de funciones por atención (Explicabilidad)

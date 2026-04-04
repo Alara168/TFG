@@ -19,7 +19,6 @@ export function UploadPage() {
   const navigate = useNavigate();
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [enableYARA, setEnableYARA] = useState(false);
   const [enablePseudoLabel, setEnablePseudoLabel] = useState(false);
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -46,7 +45,6 @@ export function UploadPage() {
 
     const formData = new FormData();
     formData.append('archivo', file);
-    formData.append('enable_yara', String(enableYARA));
     formData.append('enable_pseudo_label', String(enablePseudoLabel));
 
     try {
@@ -214,19 +212,7 @@ export function UploadPage() {
             <div className="bg-card border border-border rounded-xl p-6 space-y-4">
               <h2 className="text-sm font-black uppercase tracking-widest text-primary/60">Configuración del Motor</h2>
               <div className="space-y-2">
-                <button 
-                  onClick={() => setEnableYARA(!enableYARA)}
-                  className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${enableYARA ? 'bg-primary/5 border-primary text-primary' : 'bg-background border-border text-muted-foreground'}`}
-                >
-                  <div className="text-left">
-                    <p className="font-bold text-sm">Escaneo de Firmas YARA</p>
-                    <p className="text-[10px] opacity-70">Detección estática mediante reglas heurísticas</p>
-                  </div>
-                  <div className={`w-10 h-5 rounded-full relative transition-colors ${enableYARA ? 'bg-primary' : 'bg-muted'}`}>
-                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${enableYARA ? 'left-6' : 'left-1'}`} />
-                  </div>
-                </button>
-
+                
                 <button 
                   onClick={() => setEnablePseudoLabel(!enablePseudoLabel)}
                   className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${enablePseudoLabel ? 'bg-primary/5 border-primary text-primary' : 'bg-background border-border text-muted-foreground'}`}
