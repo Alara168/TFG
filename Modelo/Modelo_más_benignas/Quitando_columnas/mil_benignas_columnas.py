@@ -304,6 +304,6 @@ def entrenar(csv_path, k_folds=5):
         if i == 0: create_activation_video(model, feats.to(device), addrs)
 
 if __name__ == "__main__":
-    csv_file = "../../Scrap/dataset_tfg_etiquetado_completo.csv"
+    csv_file = "../../../Scrap/dataset_tfg_etiquetado_completo.csv"
     if os.path.exists(csv_file):
         entrenar(csv_file)
