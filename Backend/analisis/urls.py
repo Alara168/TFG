@@ -12,6 +12,11 @@ from .views import (
     DatasetExplorerListView,
     UpdatePseudoLabelView
 )
+from drf_spectacular.views import (
+    SpectacularAPIView, 
+    SpectacularRedocView, 
+    SpectacularSwaggerView
+)
 from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
@@ -27,4 +32,12 @@ urlpatterns = [
     path('analisis/<int:analisis_pk>/codigo/<str:direccion>/', DetalleCodigoView.as_view(), name='analisis-codigo'),
     path('admin/full-dataset-explorer/', DatasetExplorerListView.as_view(), name='dataset-explorer'),
     path('admin/<int:pk>/toggle-pseudo-label/', UpdatePseudoLabelView.as_view(), name='toggle-pseudo-label'),
+
+    # --- DOCUMENTACIÓN API ---
+    # Genera el archivo schema.yml internamente
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    # Interfaz Swagger (la más visual y profesional para empresas)
+    path('docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    # Interfaz Redoc (alternativa más limpia)
+    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]

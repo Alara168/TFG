@@ -2,7 +2,6 @@ Hacer más análisis para poder realizar el gráfico de tendencias
 
 Tareas:
    
-    - Volver a entrenar los modelos quitando las columnas de has_api_instruccion para ver si de esa forma mejoran los datos
     - Revisar todos los comentarios y documentar el código
 
 
