@@ -56,11 +56,9 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '10/day',      # Usuarios no identificados
         'user': '1000/day',   # Usuarios normales
         'enterprise': '5000/hour', # Tu nuevo perfil empresarial
     }
