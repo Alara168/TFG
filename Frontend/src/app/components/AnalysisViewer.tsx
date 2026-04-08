@@ -97,6 +97,11 @@ export function AnalysisViewer() {
   }, []);
 
   useEffect(() => {
+    setCodeData(null);
+  }, [selectedAddress]);
+
+  useEffect(() => {
+
     const fetchData = async () => {
       if (!id) return;
       setIsLoading(true);

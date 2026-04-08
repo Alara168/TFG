@@ -8,6 +8,8 @@ import pefile
 import pandas as pd
 from capstone import *
 from capstone.x86 import *
+import os, tempfile, pefile, traceback, re
+from smda.Disassembler import Disassembler
 
 # Carga perezosa del modelo para ahorrar memoria
 _MODELO, _PIPELINE = None, None
@@ -38,8 +40,6 @@ def get_resources():
     return _MODELO, _PIPELINE
 
 def extract_features(archivo_django):
-    import os, tempfile, pefile, traceback, re
-    from smda.Disassembler import Disassembler
 
     archivo_django.seek(0)
     full_binary_data = archivo_django.read()

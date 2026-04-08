@@ -47,8 +47,6 @@ class AnalizarBinarioView(APIView):
 
     def post(self, request):
 
-        print("aquí")
-
         enable_pseudo_raw = request.data.get('enable_pseudo_label', 'false')
         enable_pseudo_bool = str(enable_pseudo_raw).lower() == 'true'
 

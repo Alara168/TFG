@@ -30,6 +30,13 @@ export function UserDashboard() {
   const [history, setHistory] = useState<AnalysisRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const parseFechaEspanola = (fechaStr: string) => {
+    const [fecha, hora] = fechaStr.split(' ');
+    const [dia, mes, anio] = fecha.split('-').map(Number);
+    // El mes en JS va de 0 a 11, por eso restamos 1
+    return new Date(anio, mes - 1, dia);
+  };
+
   useEffect(() => {
     if (location.state?.error) {
       toast.error(location.state.error);
@@ -58,20 +65,20 @@ export function UserDashboard() {
   const dynamicTrendData = useMemo(() => {
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     
-    // Si no hay datos, devolvemos un array con el mes actual vacío para que el gráfico no rompa
     if (history.length === 0) {
       return [{ month: monthNames[new Date().getMonth()], Ransom: 0, Financiero: 0, Sistema: 0, Intrusion: 0, Benigno: 0 }];
     }
 
     const agrupado = history.reduce((acc: any, item) => {
-      const fecha = new Date(item.fecha_subida);
+      const fecha = parseFechaEspanola(item.fecha_subida); 
+      
       const mesNombre = monthNames[fecha.getMonth()];
       const anio = fecha.getFullYear();
-      const key = `${anio}-${fecha.getMonth().toString().padStart(2, '0')}`;
+      const key = `${anio}-${(fecha.getMonth() + 1).toString().padStart(2, '0')}`;
 
       if (!acc[key]) {
         acc[key] = { 
-          month: mesNombre,
+          month: `${mesNombre} ${anio}`,
           Ransom: 0, 
           Financiero: 0, 
           Sistema: 0, 
