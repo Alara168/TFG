@@ -7,10 +7,18 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { DatasetExplorer } from './components/DatasetExplorer';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Registro } from './components/Registro';
+import { useEffect } from 'react';
 import '../styles/fonts.css';
 import { Toaster } from 'react-hot-toast';
 
 export default function App() {
+  function RedirectToDocs() {
+    useEffect(() => {
+      window.location.href = 'http://localhost:8000/api/docs/';
+    }, []);
+    return null;
+  }
+
   return (
     <div className="dark">
       <Toaster 
@@ -29,6 +37,8 @@ export default function App() {
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
           <Route path="/registro" element={<Registro />} />
+          <Route path="/api-docs" element={<RedirectToDocs />} />
+          <Route path="/api" element={<RedirectToDocs />} />
 
           {/* RUTAS PROTEGIDAS (Requieren sesión) */}
           <Route element={<ProtectedRoute />}>
