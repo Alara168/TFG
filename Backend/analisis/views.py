@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .utils import calcular_sha256, extract_features, get_resources, registrar_log, desensamblar_funcion
 from .models import Analisis, DetalleFuncion, LogActividad, Subida, TelemetriaSistema, MetricasModelo
-from .serializers import AnalisisSerializer, HistorialSimplificadoSerializer
+from .serializers import AnalisisSerializer, HistorialSimplificadoSerializer, AnalizarBinarioInputSerializer, AdminDashboardResponseSerializer, DatasetExplorerResponseSerializer, CallGraphResponseSerializer
 import torch, pandas as pd
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -25,6 +25,9 @@ from datetime import timedelta
 import GPUtil
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 
 
 class AnalizarBinarioView(APIView):
@@ -45,10 +48,20 @@ class AnalizarBinarioView(APIView):
             return False
         return True
 
+    @extend_schema(
+            summary="Analizar archivo binario",
+            description="Sube un archivo .exe para analizarlo con el modelo de IA.",
+            request={
+                'multipart/form-data': AnalizarBinarioInputSerializer
+            },
+            responses={200: AnalisisSerializer} # El serializer que ya usas al final
+        )
     def post(self, request):
 
-        enable_pseudo_raw = request.data.get('enable_pseudo_label', 'false')
-        enable_pseudo_bool = str(enable_pseudo_raw).lower() == 'true'
+        serializer = AnalizarBinarioInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        enable_pseudo_bool = serializer.validated_data.get('enable_pseudo_label', False)
+        file_obj = serializer.validated_data.get('archivo')
 
         file_obj = request.FILES.get('archivo')
         if not file_obj: 
@@ -220,6 +233,15 @@ class CustomLoginView(TokenObtainPairView):
 class CallGraphView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Obtener Grafo de Llamadas (Bypass Logic)",
+        description=(
+            "Genera una visualización simplificada del flujo del binario. "
+            "Utiliza algoritmos de NetworkX para conectar las 20 funciones más críticas, "
+            "omitiendo nodos intermedios irrelevantes (lógica bypass)."
+        ),
+        responses={200: CallGraphResponseSerializer}
+    )
     def get(self, request, pk):
         subida = Subida.objects.filter(analisis_id=pk, usuario=request.user).first()
         if not subida: 
@@ -307,6 +329,11 @@ class LogoutView(APIView):
 class AdminDashboardView(APIView):
     permission_classes = [IsAdminUser]
 
+    @extend_schema(
+        summary="Obtener estadísticas globales del administrador",
+        description="Retorna KPIs, telemetría del sistema (CPU/GPU), rendimiento del modelo y logs de actividad.",
+        responses={200: AdminDashboardResponseSerializer}
+    )
     def get(self, request):
         # --- 1. LÓGICA DE ACTUALIZACIÓN LAZY (EAGER COMPUTATION) ---
         ahora = timezone.now()
@@ -432,6 +459,20 @@ class DetalleCodigoView(APIView):
 class DatasetExplorerListView(APIView):
     permission_classes = [IsAdminUser]
 
+    @extend_schema(
+        summary="Explorador del Dataset (Filtros avanzados)",
+        description="Permite buscar en todo el dataset filtrando por atributos del archivo o de sus funciones internas.",
+        parameters=[
+            OpenApiParameter("fichero", OpenApiTypes.STR, description="Nombre del archivo"),
+            OpenApiParameter("clase", OpenApiTypes.STR, description="Clase (Benigno, Ransomware...)"),
+            OpenApiParameter("direccion", OpenApiTypes.STR, description="Dirección de memoria de la función"),
+            OpenApiParameter("score", OpenApiTypes.FLOAT, description="Score mínimo de atención"),
+            OpenApiParameter("instrucciones", OpenApiTypes.INT, description="Mínimo de instrucciones"),
+            OpenApiParameter("entropia", OpenApiTypes.FLOAT, description="Entropía mínima"),
+            OpenApiParameter("complejidad", OpenApiTypes.INT, description="Complejidad ciclomática mínima"),
+        ],
+        responses={200: DatasetExplorerResponseSerializer(many=True)}
+    )
     def get(self, request):
         # 1. Capturar parámetros de búsqueda
         fichero = request.query_params.get('fichero', '')

@@ -85,3 +85,66 @@ class HistorialSimplificadoSerializer(serializers.ModelSerializer):
             'tamano_bytes',
             'fecha_subida'
         ]
+
+#SERIALIZERS FANTASMAS PARA LA DOCUMENTACIÓN
+class AnalizarBinarioInputSerializer(serializers.Serializer):
+    archivo = serializers.FileField(help_text="Archivo ejecutable de Windows (PE)")
+    enable_pseudo_label = serializers.BooleanField(default=False, help_text="Activar etiquetado pseudo-label")
+
+from rest_framework import serializers
+
+class KPIISerializer(serializers.Serializer):
+    gpu_load = serializers.IntegerField()
+    cpu_load = serializers.FloatField()
+    active_users = serializers.IntegerField()
+    dataset_size = serializers.CharField()
+
+class ResourceUsageSerializer(serializers.Serializer):
+    time = serializers.CharField()
+    cpu = serializers.FloatField()
+    gpu = serializers.FloatField()
+
+class ModelPerformanceSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    precision = serializers.FloatField()
+    recall = serializers.FloatField()
+    f1 = serializers.FloatField()
+
+class AdminDashboardResponseSerializer(serializers.Serializer):
+    kpis = KPIISerializer()
+    active_users_list = serializers.ListField(child=serializers.CharField())
+    charts = serializers.JSONField(help_text="Contiene resource_usage y model_performance")
+    pseudo_labels = serializers.ListField(child=serializers.JSONField())
+    user_logs = serializers.ListField(child=serializers.JSONField())
+    user_reputation = serializers.ListField(child=serializers.JSONField())
+
+class FunciónFiltradaSerializer(serializers.Serializer):
+    direccion_memoria = serializers.CharField()
+    atencion_score = serializers.FloatField()
+    num_instrucciones = serializers.IntegerField()
+    entropia = serializers.FloatField()
+    complejidad = serializers.IntegerField()
+
+class DatasetExplorerResponseSerializer(serializers.Serializer):
+    nombre_fichero = serializers.CharField()
+    resultado_clase = serializers.CharField()
+    confianza_global = serializers.FloatField()
+    hash_sha256 = serializers.CharField()
+    detalles_funciones = FunciónFiltradaSerializer(many=True)
+
+class CallGraphNodeSerializer(serializers.Serializer):
+    id = serializers.CharField(help_text="ID único del nodo (dirección de memoria)")
+    label = serializers.CharField(help_text="Etiqueta corta para visualización")
+    atencion_score = serializers.FloatField(help_text="Puntuación de atención de la IA")
+    is_critical = serializers.BooleanField(default=True)
+
+class CallGraphEdgeSerializer(serializers.Serializer):
+    source = serializers.CharField(help_text="ID del nodo origen")
+    target = serializers.CharField(help_text="ID del nodo destino")
+    label = serializers.CharField(default="bypass")
+
+class CallGraphResponseSerializer(serializers.Serializer):
+    nodes = CallGraphNodeSerializer(many=True)
+    edges = CallGraphEdgeSerializer(many=True)
+    metodo = serializers.CharField(default="bypass")
+    procesado = serializers.BooleanField(default=True)
