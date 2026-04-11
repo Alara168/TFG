@@ -104,6 +104,7 @@ class AnalizarBinarioView(APIView):
             for col in pipeline['feature_cols']:
                 if col not in df.columns: df[col] = 0
             df = df[pipeline['feature_cols']]
+            df = df.drop(columns=[col for col in df.columns if col.startswith('has_api:')])
             
             scaled_feats = pipeline['scaler'].transform(df.astype(float))
             bag_tensor = torch.tensor(scaled_feats, dtype=torch.float32)

@@ -5,10 +5,4 @@ Tareas:
     - Revisar todos los comentarios y documentar el código
 
 
-Reentrenar el modelo para que funcione sin la categoría Otros/Ransomware y mirar si de esa forma funciona mejor para predecir Benigno
-con los instaladores. Mirar qué pasaría si le pasas ransomware real 
-
-Entrenar el modelo en LORCA que ya he creado uno que está en modelo Multicabeza
-
-
 Revisar los TODO

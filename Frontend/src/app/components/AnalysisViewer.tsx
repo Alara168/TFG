@@ -83,7 +83,7 @@ export function AnalysisViewer() {
   const [graphData, setGraphData] = useState<{nodes: any[], edges: any[]}>({ nodes: [], edges: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
-  const [attentionFilter, setAttentionFilter] = useState(0.005);
+  const [attentionFilter, setAttentionFilter] = useState(0);
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [codeData, setCodeData] = useState<string | null>(null);
@@ -415,7 +415,7 @@ export function AnalysisViewer() {
           </div>
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-2"><Filter style={{ width: getFontSize(14), height: getFontSize(14) }} className="text-primary" /><span style={{ fontSize: getFontSize(10) }} className="font-black uppercase tracking-widest text-white/40">Filtro Atención</span></div>
-            <input type="range" min="0.005" max="0.1" step="0.005" value={attentionFilter} onChange={(e) => setAttentionFilter(parseFloat(e.target.value))} className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary" />
+            <input type="range" min="0" max="0.5" step="0.005" value={attentionFilter} onChange={(e) => setAttentionFilter(parseFloat(e.target.value))} className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary" />
             <div className="flex justify-between font-mono text-primary font-black" style={{ fontSize: getFontSize(14) }}><span>Umbral:</span><span>{(attentionFilter).toFixed(3)}</span></div>
           </div>
         </aside>
