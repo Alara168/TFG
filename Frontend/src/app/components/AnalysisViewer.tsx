@@ -368,7 +368,7 @@ export function AnalysisViewer() {
         <div className="flex items-center gap-5">
           <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-white/10 rounded-lg transition-all"><ArrowLeft style={{ width: getFontSize(22), height: getFontSize(22) }} /></button>
           <div>
-            <h1 style={{ fontSize: getFontSize(18) }} className="font-black tracking-tight uppercase">Grafo: {analysis?.nombre_fichero}</h1>
+            <h1 style={{ fontSize: getFontSize(18) }} className="font-black tracking-tight uppercase">Grafo de Dependencias: {analysis?.nombre_fichero}</h1>
             <p style={{ fontSize: getFontSize(10) }} className="text-white/40 font-mono tracking-tighter">{analysis?.hash_sha256}</p>
           </div>
         </div>
