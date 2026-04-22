@@ -61,7 +61,7 @@ export function AdminDashboard() {
   
       if (response.ok) {
         // 2. Actualización dinámica en LOCAL
-        // Asumiendo que tu estado se llama 'data' y tiene una propiedad 'pseudo_labels'
+
         setData((prevData: any) => {
           if (!prevData) return prevData;
   
@@ -70,7 +70,7 @@ export function AdminDashboard() {
             pseudo_labels: prevData.pseudo_labels.map((item: any) => {
               if (item.id === id) {
                 // Devolvemos el item con el nuevo valor booleano
-                return { ...item, pseudo_label: nuevoValor };
+                return { ...item, label: nuevoValor };
               }
               return item;
             }),
@@ -201,7 +201,7 @@ export function AdminDashboard() {
                   <td className="py-3 px-4">
                     <div className="flex items-center justify-center min-w-[100px]">
                       {/* Usamos el valor booleano que actualizamos en el paso anterior */}
-                      {item.pseudo_label ? (
+                      {item.label ? (
                         /* SI ES TRUE: Mostramos botón para poner a FALSE (X) */
                         <button
                           onClick={() => handleUpdatePseudoLabel(item.id, false)}
