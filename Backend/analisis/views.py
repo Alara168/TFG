@@ -347,7 +347,7 @@ class AdminDashboardView(APIView):
             TelemetriaSistema.objects.create(cpu_usage=cpu, gpu_usage=gpu)
             
 
-        dataset_size = round((45000 + Analisis.objects.count()) / 1000)
+        dataset_size = Analisis.objects.count()
 
         # --- 2. RESTO DE KPIs Y LOGS ---
         
@@ -416,7 +416,7 @@ class AdminDashboardView(APIView):
                 "gpu_load": gpu_usage,
                 "cpu_load": cpu_usage,
                 "active_users": len(active_users_names),
-                "dataset_size": f"{dataset_size}K"
+                "dataset_size": dataset_size
             },
             "active_users_list": active_users_names,
             "charts": {
