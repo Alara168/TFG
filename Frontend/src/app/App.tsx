@@ -52,9 +52,9 @@ export default function App() {
           </Route>
 
           {/* REDIRECCIÓN GLOBAL: 
-              Si la ruta no existe, manda al Login. 
+              Si la ruta no existe, manda al dashboard. 
           */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
     </div>
